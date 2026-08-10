@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Grindrise",
+    "slug": "grindrise",
+    "scheme": "grindrise",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.grindrise.app"
+    },
+    "android": {
+      "package": "com.grindrise.app",
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
