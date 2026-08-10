@@ -82,6 +82,11 @@ pnpm db:diff -f <nom>   # génère une migration à partir d'un changement local
 client ne peut pas s'attribuer d'XP. Ni Docker ni projet distant nécessaires,
 donc à lancer après **toute** modification de `supabase/migrations/`.
 
+`pnpm db:types` écrit `supabase/database.types.ts` puis le copie dans
+`backend/src/` et `mobile/src/lib/`. Ces copies sont versionnées à dessein :
+le contexte de build Docker se limite à `backend/`, et Metro ne résout pas les
+imports hors du dossier du projet. **À relancer après chaque migration.**
+
 ## Secrets
 
 Aucun `.env` n'est commité. Les `.env.example` documentent les variables

@@ -10,7 +10,7 @@
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
     "db:test": "node --test \"supabase/tests/**/*.test.mjs\"",
-    "db:types": "supabase gen types typescript --linked > supabase/database.types.ts"
+    "db:types": "supabase gen types typescript --linked > supabase/database.types.ts && cp supabase/database.types.ts backend/src/database.types.ts && cp supabase/database.types.ts mobile/src/lib/database.types.ts"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.4",
