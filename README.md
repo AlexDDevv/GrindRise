@@ -9,7 +9,7 @@ Application mobile de tracking sportif avec une couche de gamification RPG
 mobile/     App Expo (React Native + TypeScript), organisée par feature
 backend/    API NestJS (modular monolith), déployée en container sur CapRover
   worker/   emplacement du futur worker de notifications (BullMQ) — vide
-supabase/   migrations SQL (à créer via la CLI)
+supabase/   migrations SQL, seeds et tests de schéma
 ```
 
 Le gestionnaire de paquets est **pnpm** (épinglé par le champ `packageManager`
@@ -70,11 +70,17 @@ Vérification : `curl http://localhost:3000/health` → `{"status":"ok"}`.
 La CLI Supabase est installée à la racine :
 
 ```bash
-pnpm db --help          # équivaut à `supabase --help`
-pnpm db init            # à faire une fois : crée supabase/
-pnpm db:diff -f <nom>   # génère une migration
+pnpm db:test            # teste le schéma et la RLS (aucun service requis)
+pnpm db login           # puis: pnpm db link --project-ref <ref>
 pnpm db:push            # applique les migrations sur le projet distant
+pnpm db:types           # régénère supabase/database.types.ts
+pnpm db:diff -f <nom>   # génère une migration à partir d'un changement local
 ```
+
+`pnpm db:test` rejoue toutes les migrations dans un Postgres 17 embarqué
+(PGlite, en WASM) et vérifie que les policies tiennent — notamment qu'un
+client ne peut pas s'attribuer d'XP. Ni Docker ni projet distant nécessaires,
+donc à lancer après **toute** modification de `supabase/migrations/`.
 
 ## Secrets
 
