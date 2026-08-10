@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { AppState } from 'react-native';
 
+import type { Database } from './database.types';
 import { env, isSupabaseConfigured } from './env';
 
 /**
@@ -14,8 +15,12 @@ import { env, isSupabaseConfigured } from './env';
  *
  * Les valeurs de repli n'existent que pour laisser le squelette démarrer sans
  * `.env` ; `isSupabaseConfigured` reste la garde à tester avant tout appel.
+ *
+ * `database.types.ts` est généré par `pnpm db:types` à la racine du monorepo
+ * et copié ici : Metro ne résout pas les imports hors du dossier du projet
+ * sans configuration supplémentaire. À régénérer après chaque migration.
  */
-export const supabase = createClient(
+export const supabase = createClient<Database>(
   env.supabaseUrl || 'https://placeholder.supabase.co',
   env.supabaseAnonKey || 'placeholder-anon-key',
   {

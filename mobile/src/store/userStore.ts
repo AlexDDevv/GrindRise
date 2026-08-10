@@ -1,24 +1,21 @@
 import type { Session } from '@supabase/supabase-js';
 import { create } from 'zustand';
 
-/** Miroir local de `profiles` (Supabase). */
-export type Profile = {
-  id: string;
-  username: string | null;
-  classId: string | null;
-};
+import type { Database } from '../lib/database.types';
 
 /**
- * Miroir local de `user_progress`.
- *
+ * Les types viennent directement du schéma généré : pas de couche de
+ * correspondance à maintenir, et une colonne renommée en migration casse la
+ * compilation au lieu de produire un `undefined` silencieux à l'exécution.
+ * D'où le snake_case, qui est celui de la base.
+ */
+export type Profile = Database['public']['Tables']['profiles']['Row'];
+
+/**
  * Cache d'affichage uniquement : la source de vérité est `xp_events` côté
  * serveur. Rien ici n'est renvoyé au backend pour attribuer de l'XP.
  */
-export type Progress = {
-  level: number;
-  currentXp: number;
-  streakDays: number;
-};
+export type Progress = Database['public']['Tables']['user_progress']['Row'];
 
 type UserState = {
   session: Session | null;
@@ -55,4 +52,4 @@ export const useUserStore = create<UserState>((set) => ({
 export const useIsAuthenticated = () => useUserStore((s) => s.session !== null);
 
 /** L'onboarding est terminé quand une classe a été choisie. */
-export const useHasChosenClass = () => useUserStore((s) => s.profile?.classId != null);
+export const useHasChosenClass = () => useUserStore((s) => s.profile?.class_id != null);

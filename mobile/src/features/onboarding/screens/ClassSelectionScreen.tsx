@@ -13,7 +13,8 @@ export function ClassSelectionScreen() {
     setProfile({
       id: session?.user.id ?? 'dev-user',
       username: null,
-      classId: 'demo-class',
+      class_id: 'berserker',
+      created_at: new Date().toISOString(),
     });
 
   return (
