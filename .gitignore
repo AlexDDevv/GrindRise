@@ -1,0 +1,48 @@
+CLAUDE.md
+.superpowers/
+docs/
+
+# Dépendances
+node_modules/
+
+# Variables d'environnement (les .env.example, eux, sont commités)
+.env
+.env.*
+!.env.example
+
+# Builds
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Expo / React Native
+.expo/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+.kotlin/
+# Dossiers natifs générés par prebuild — on reste en workflow managed
+mobile/ios/
+mobile/android/
+
+# Secrets de signature
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# Logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
