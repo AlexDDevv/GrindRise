@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs'],
+    // database.types.ts est généré par `pnpm db:types` : le corriger n'aurait
+    // aucun effet, la prochaine régénération l'écraserait.
+    ignores: ['eslint.config.mjs', 'src/database.types.ts'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

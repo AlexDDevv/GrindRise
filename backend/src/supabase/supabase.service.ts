@@ -1,16 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import type { AppConfig } from '../config/env.config';
+import type { Database } from '../database.types';
 
 /**
- * Type du client tel qu'instancié ici.
+ * Client typé sur le schéma réel de la base.
  *
- * Deviendra `SupabaseClient<Database>` quand les types seront générés
- * (`npx supabase gen types typescript`), ce qui typera toutes les requêtes.
+ * `database.types.ts` est généré par `pnpm db:types` à la racine du monorepo
+ * et copié ici : le contexte de build Docker est limité à `backend/`, un
+ * import hors de ce dossier serait introuvable au déploiement.
+ * À régénérer après chaque migration.
  */
-export type AppSupabaseClient = ReturnType<typeof createClient>;
+export type AppSupabaseClient = SupabaseClient<Database>;
 
 /**
  * Client Supabase serveur, avec la clé `service_role`.
@@ -26,7 +29,7 @@ export class SupabaseService {
   readonly client: AppSupabaseClient;
 
   constructor(private readonly config: ConfigService<AppConfig, true>) {
-    this.client = createClient(
+    this.client = createClient<Database>(
       this.config.get('supabaseUrl', { infer: true }),
       this.config.get('supabaseServiceRoleKey', { infer: true }),
       {
