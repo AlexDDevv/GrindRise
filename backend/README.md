@@ -7,9 +7,9 @@ réception des webhooks RevenueCat.
 ## Démarrer
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env   # puis renseigner SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY
-npm run start:dev
+pnpm run start:dev
 ```
 
 L'app **refuse de démarrer** si une variable requise manque (`src/config/env.config.ts`) —
