@@ -5,18 +5,25 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
+# La version de pnpm vient du champ `packageManager` de package.json.
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 # --- Étape 2 : dépendances de production uniquement -------------------------
 FROM node:22-alpine AS deps
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod && pnpm store prune
 
 # --- Étape 3 : image d'exécution --------------------------------------------
 FROM node:22-alpine AS runner
@@ -29,6 +36,8 @@ RUN apk add --no-cache tini
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# node_modules est copié en entier (dont .pnpm) : les liens symboliques du
+# linker isolé sont relatifs à /app, ils restent valides d'une étape à l'autre.
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY package.json ./
