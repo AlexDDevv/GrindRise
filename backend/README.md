@@ -122,13 +122,20 @@ hasard pour autant — `getState()` resynchronise à chaque consultation du code
 | Route | Effet |
 |---|---|
 | `GET /narrative` | État groupé par trame. Ne renvoie **que** les beats débloqués |
+| `POST /narrative/sync` | Rattrape les déblocages d'une progression qui ne passe pas par une séance (sortie d'onboarding) |
 | `POST /narrative/beats/:beatId/read` | Date la première consultation. Idempotent, 404 sur un beat non débloqué |
 
-`narrative_beats` est en lecture publique, comme les autres tables de contenu :
-un client déterminé peut donc lire du texte non débloqué directement en base.
-L'API, elle, ne sert jamais un fragment non gagné. Si le spoil devient un vrai
-sujet, la policy peut être resserrée aux beats présents dans
-`user_narrative_unlocks` sans rien casser côté mobile, qui passe déjà par l'API.
+`POST /workouts` renvoie en plus `narrative.unlocked` : les fragments que la
+séance vient d'ouvrir, pour que le mobile puisse l'annoncer au bon moment. Ce
+champ est **vide si la synchronisation a échoué** — son absence ne prouve donc
+pas qu'aucun palier n'a été franchi, et c'est le codex qui fait autorité.
+
+`narrative_beats` n'est **pas** en lecture publique, contrairement aux autres
+tables de contenu : le client ne voit que les beats présents dans ses
+`user_narrative_unlocks`. Une table de règles peut se lire d'avance, une
+histoire non. L'API n'est pas concernée par cette policy — la clé
+`service_role` la contourne, et il faut bien lire un beat non débloqué pour
+décider de le débloquer.
 
 ## Déploiement CapRover
 
