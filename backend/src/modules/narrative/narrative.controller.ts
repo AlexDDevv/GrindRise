@@ -10,7 +10,11 @@ import {
 
 import type { AuthenticatedUser } from '../../auth/authenticated-user';
 import { CurrentUser } from '../../auth/current-user.decorator';
-import { NarrativeService, type NarrativeState } from './narrative.service';
+import {
+  NarrativeService,
+  type NarrativeBeat,
+  type NarrativeState,
+} from './narrative.service';
 
 @Controller('narrative')
 export class NarrativeController {
@@ -29,6 +33,30 @@ export class NarrativeController {
   @Get()
   getState(@CurrentUser() user: AuthenticatedUser): Promise<NarrativeState> {
     return this.narrative.getState(user.id);
+  }
+
+  /**
+   * Rattrape les déblocages en retard, sans renvoyer tout le codex.
+   *
+   * Existe pour les moments de progression qui ne passent pas par une séance —
+   * aujourd'hui la sortie de l'onboarding, où le premier fragment doit être
+   * disponible dès la création du compte plutôt qu'à la première séance loggée.
+   *
+   * Il n'y avait pas de bon endroit ailleurs : le choix de classe s'écrit
+   * directement en base par la RLS, et un trigger Postgres aurait fait entrer
+   * les seuils de déblocage dans la base, là où tout le reste du game design
+   * vit en TypeScript.
+   *
+   * À ne pas lire comme « l'onboarding débloque du contenu parce qu'une classe
+   * a été choisie » : la classe n'entre pas dans le calcul, c'est le seul moment
+   * du parcours où le compte devient utilisable.
+   */
+  @Post('sync')
+  @HttpCode(HttpStatus.OK)
+  async sync(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ unlocked: NarrativeBeat[] }> {
+    return { unlocked: await this.narrative.syncUnlocks(user.id) };
   }
 
   /**
