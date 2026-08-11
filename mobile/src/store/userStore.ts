@@ -24,6 +24,22 @@ type UserState = {
   /** Faux tant que la session persistée n'a pas été relue au démarrage. */
   isHydrated: boolean;
 
+  /**
+   * Applique en une seule transition la session ET le contexte qu'elle
+   * désigne.
+   *
+   * Poser la session seule ferait passer `isAuthenticated` à vrai avec un
+   * profil encore nul : le `RootNavigator` monterait la pile d'onboarding pour
+   * la démonter aussitôt le profil arrivé. Une session n'entre donc dans le
+   * store qu'accompagnée de son profil — le type l'impose, il n'est pas
+   * nullable ici.
+   */
+  applyAuthState: (next: {
+    session: Session;
+    profile: Profile;
+    progress: Progress | null;
+  }) => void;
+
   setSession: (session: Session | null) => void;
   setProfile: (profile: Profile | null) => void;
   setProgress: (progress: Progress | null) => void;
@@ -40,6 +56,9 @@ const initialState = {
 
 export const useUserStore = create<UserState>((set) => ({
   ...initialState,
+
+  applyAuthState: ({ session, profile, progress }) =>
+    set({ session, profile, progress, isHydrated: true }),
 
   setSession: (session) => set({ session }),
   setProfile: (profile) => set({ profile }),
