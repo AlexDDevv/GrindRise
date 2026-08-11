@@ -24,6 +24,7 @@ Vérification : `curl http://localhost:3000/health` → `{"status":"ok"}`
 src/
   config/      validation des variables d'environnement
   supabase/    client service_role (contourne la RLS — usage serveur strict)
+  auth/        guard global : vérifie le JWT Supabase, expose @CurrentUser()
   health/      sonde de vie du container
   modules/
     users/           profils
@@ -36,6 +37,21 @@ worker/        emplacement du futur worker de notifications (voir son README)
 Chaque module expose son service via `exports` ; aucun module n'importe les
 providers internes d'un autre. C'est ce qui rendra une extraction ultérieure
 mécanique.
+
+## Authentification
+
+Toute route est protégée par défaut : `SupabaseAuthGuard` est enregistré en
+`APP_GUARD`, donc appliqué à l'ensemble de l'application, y compris aux
+endpoints ajoutés plus tard. Le JWT est vérifié **localement** contre le JWKS
+public du projet — pas d'aller-retour réseau par requête.
+
+Une route ne s'ouvre qu'en portant `@Public()`, et ce décorateur oblige à dire
+par quoi elle est protégée à la place (`/health` par rien, le webhook
+RevenueCat par son secret partagé).
+
+L'identité s'obtient par `@CurrentUser()`. Son champ `id` **est** le
+`profile_id` : `profiles.id` référence `auth.users(id)`. Aucun handler ne doit
+lire un identifiant d'utilisateur depuis le corps ou l'URL de la requête.
 
 ## Règles non négociables
 

@@ -4,6 +4,7 @@ import { exportJWK, generateKeyPair, SignJWT, type KeyLike } from 'jose';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
+import { SupabaseService } from '../src/supabase/supabase.service';
 import { startJwksServer, type JwksServer } from './jwks-server';
 
 /**
@@ -16,11 +17,59 @@ import { startJwksServer, type JwksServer } from './jwks-server';
 const KEY_ID = 'test-signing-key';
 const PROFILE_ID = '3f8b1c2e-6d4a-4f1b-9c7e-2a5d8e0b4f16';
 
+const PROFILE_ROW = {
+  id: PROFILE_ID,
+  username: 'grind',
+  class_id: 'berserker',
+  created_at: '2026-08-11T09:00:00.000Z',
+};
+
+const PROGRESS_ROW = {
+  profile_id: PROFILE_ID,
+  level: 3,
+  current_xp: 420,
+  streak_days: 5,
+  updated_at: '2026-08-11T09:00:00.000Z',
+};
+
 type SignedTokenOptions = {
   /** Signe avec une clé absente du JWKS, pour simuler un jeton forgé. */
   useForeignKey?: boolean;
   role?: string;
   expiresAt?: number;
+};
+
+/**
+ * Bouchon de `SupabaseService`.
+ *
+ * Il enregistre la requête reçue : c'est ce qui permet de vérifier que
+ * l'endpoint interroge bien le profil du **sujet du jeton**, et non un
+ * identifiant qui viendrait de l'appelant. Sans cette assertion, le test
+ * passerait tout aussi bien si `/users/me` servait le profil de n'importe qui.
+ */
+const supabase: {
+  response: { data: unknown; error: { message: string } | null };
+  lastQuery?: {
+    table: string;
+    columns: string;
+    column: string;
+    value: unknown;
+  };
+} = { response: { data: null, error: null } };
+
+const supabaseStub = {
+  client: {
+    from: (table: string) => ({
+      select: (columns: string) => ({
+        eq: (column: string, value: unknown) => ({
+          maybeSingle: () => {
+            supabase.lastQuery = { table, columns, column, value };
+            return Promise.resolve(supabase.response);
+          },
+        }),
+      }),
+    }),
+  },
 };
 
 describe('SupabaseAuthGuard (e2e)', () => {
@@ -63,10 +112,20 @@ describe('SupabaseAuthGuard (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      // Le guard est testé pour de vrai ; la base, non — ces tests ne doivent
+      // dépendre d'aucun projet Supabase joignable.
+      .overrideProvider(SupabaseService)
+      .useValue(supabaseStub)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
+  });
+
+  beforeEach(() => {
+    supabase.response = { data: null, error: null };
+    supabase.lastQuery = undefined;
   });
 
   afterAll(async () => {
@@ -143,16 +202,40 @@ describe('SupabaseAuthGuard (e2e)', () => {
         .expect(401);
     });
 
-    it('laisse passer un jeton valide jusqu’au handler', async () => {
+    it('sert le profil du sujet du jeton', async () => {
+      supabase.response = {
+        data: { ...PROFILE_ROW, user_progress: PROGRESS_ROW },
+        error: null,
+      };
       const token = await signToken();
 
-      // 501 et non 200 : `GET /users/me` n'est pas encore implémenté. C'est
-      // précisément la preuve recherchée — la requête a franchi le guard et
-      // atteint le contrôleur.
+      const response = await request(app.getHttpServer())
+        .get('/users/me')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(response.body).toEqual({
+        profile: PROFILE_ROW,
+        progress: PROGRESS_ROW,
+      });
+
+      // L'identité interrogée vient du JWT vérifié, pas de l'appelant.
+      expect(supabase.lastQuery).toMatchObject({
+        table: 'profiles',
+        column: 'id',
+        value: PROFILE_ID,
+      });
+      expect(supabase.lastQuery?.columns).toContain('user_progress(*)');
+    });
+
+    it('renvoie 404 quand le compte authentifié n’a pas de profil', async () => {
+      supabase.response = { data: null, error: null };
+      const token = await signToken();
+
       return request(app.getHttpServer())
         .get('/users/me')
         .set('Authorization', `Bearer ${token}`)
-        .expect(501);
+        .expect(404);
     });
   });
 });
