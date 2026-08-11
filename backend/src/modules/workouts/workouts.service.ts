@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import {
   GamificationService,
   type WorkoutAward,
 } from '../gamification/gamification.service';
+import { NarrativeService } from '../narrative/narrative.service';
 // Import de type seul, donc effacé à la compilation : aucune dépendance à
 // l'exécution, et la règle « aucun module n'importe les providers internes d'un
 // autre » reste tenue. Réutiliser la forme de `GET /users/me` évite au mobile
@@ -43,9 +44,12 @@ export type WorkoutCreated = Omit<UserWithProgress, 'progress'> & {
  */
 @Injectable()
 export class WorkoutsService {
+  private readonly logger = new Logger(WorkoutsService.name);
+
   constructor(
     private readonly users: UsersService,
     private readonly gamification: GamificationService,
+    private readonly narrative: NarrativeService,
   ) {}
 
   /**
@@ -69,6 +73,23 @@ export class WorkoutsService {
       timeZone: profile.timezone,
       levelBefore: progress?.level ?? 1,
     });
+
+    // Une séance change les deux sources de déclenchement narratif : le compte
+    // de séances du sport, et le niveau global via l'XP qu'elle rapporte.
+    //
+    // Best-effort assumé : le déblocage ne fait pas partie de la transaction et
+    // son échec ne doit pas perdre une séance déjà enregistrée. Le rattrapage
+    // n'est pas laissé au hasard pour autant — `getState` resynchronise à
+    // chaque consultation du codex, donc un déblocage manqué revient tout seul.
+    try {
+      await this.narrative.syncUnlocks(profileId, award.progress.level);
+    } catch (error) {
+      this.logger.warn(
+        `Synchronisation narrative échouée pour ${profileId} : ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
     return {
       profile,

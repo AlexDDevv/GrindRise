@@ -68,12 +68,22 @@ const db: {
   workoutDays: { performed_at: string }[];
   rpcResult: unknown;
   rpcError: { message: string; code?: string } | null;
-  lastRpc?: { fn: string; args: Record<string, unknown> };
+  /**
+   * Dernier appel d'octroi d'XP. Nommé précisément parce que la requête en
+   * déclenche désormais un second, narratif : confondre les deux ferait passer
+   * un test qui ne vérifie plus rien.
+   */
+  lastAwardRpc?: { fn: string; args: Record<string, unknown> };
+  /** Réponse de `count_workouts_by_sport`, la RPC du module narratif. */
+  sessionsBySport: { sport_id: string; sessions: number }[];
+  narrativeError: { message: string } | null;
   lastProfileQuery?: unknown;
 } = {
   workoutDays: [],
   rpcResult: null,
   rpcError: null,
+  sessionsBySport: [],
+  narrativeError: null,
 };
 
 function tableBuilder(table: string) {
@@ -118,7 +128,14 @@ const supabaseStub = {
   client: {
     from: (table: string) => tableBuilder(table),
     rpc: (fn: string, args: Record<string, unknown>) => {
-      db.lastRpc = { fn, args };
+      if (fn === 'count_workouts_by_sport') {
+        return Promise.resolve({
+          data: db.sessionsBySport,
+          error: db.narrativeError,
+        });
+      }
+
+      db.lastAwardRpc = { fn, args };
       return Promise.resolve({ data: db.rpcResult, error: db.rpcError });
     },
   },
@@ -190,7 +207,9 @@ describe('POST /workouts (e2e)', () => {
   beforeEach(() => {
     db.workoutDays = [];
     db.rpcError = null;
-    db.lastRpc = undefined;
+    db.narrativeError = null;
+    db.sessionsBySport = [];
+    db.lastAwardRpc = undefined;
     db.rpcResult = {
       workout: WORKOUT_ROW,
       progress: PROGRESS_AFTER,
@@ -230,28 +249,28 @@ describe('POST /workouts (e2e)', () => {
 
       expect(JSON.stringify(response.body)).toContain('xp');
       // La requête n'a jamais atteint la base.
-      expect(db.lastRpc).toBeUndefined();
+      expect(db.lastAwardRpc).toBeUndefined();
     });
 
     it('rejette un `xp` glissé dans les métriques', async () => {
       await post(validBody({ metrics: { distanceKm: 8, xp: 9999 } })).expect(
         400,
       );
-      expect(db.lastRpc).toBeUndefined();
+      expect(db.lastAwardRpc).toBeUndefined();
     });
 
     it('rejette un `profileId` dans le corps', async () => {
       // L'identité vient du jeton ; l'accepter dans le corps, même ignorée,
       // laisserait croire qu'elle est négociable.
       await post(validBody({ profileId: AUTRUI_ID })).expect(400);
-      expect(db.lastRpc).toBeUndefined();
+      expect(db.lastAwardRpc).toBeUndefined();
     });
 
     it('crédite le sujet du jeton, quoi qu’ait tenté l’appelant', async () => {
       await post(validBody()).expect(201);
 
-      expect(db.lastRpc?.fn).toBe('log_workout_with_xp');
-      expect(db.lastRpc?.args.p_profile_id).toBe(PROFILE_ID);
+      expect(db.lastAwardRpc?.fn).toBe('log_workout_with_xp');
+      expect(db.lastAwardRpc?.args.p_profile_id).toBe(PROFILE_ID);
       expect(db.lastProfileQuery).toBe(PROFILE_ID);
     });
 
@@ -259,9 +278,9 @@ describe('POST /workouts (e2e)', () => {
       await post(validBody()).expect(201);
 
       // 60 de présence + 40 d'effort : la séance de référence en course.
-      expect(db.lastRpc?.args.p_workout_xp).toBe(100);
-      expect(db.lastRpc?.args.p_daily_credited_limit).toBe(2);
-      expect(db.lastRpc?.args.p_min_gap_minutes).toBe(30);
+      expect(db.lastAwardRpc?.args.p_workout_xp).toBe(100);
+      expect(db.lastAwardRpc?.args.p_daily_credited_limit).toBe(2);
+      expect(db.lastAwardRpc?.args.p_min_gap_minutes).toBe(30);
     });
   });
 
@@ -298,7 +317,7 @@ describe('POST /workouts (e2e)', () => {
         performedAt: new Date().toISOString(),
       }).expect(201);
 
-      expect(db.lastRpc?.args.p_workout_xp).toBe(60);
+      expect(db.lastAwardRpc?.args.p_workout_xp).toBe(60);
     });
   });
 
@@ -311,7 +330,7 @@ describe('POST /workouts (e2e)', () => {
       ).expect(400);
 
       expect(JSON.stringify(response.body)).toContain('7 jours');
-      expect(db.lastRpc).toBeUndefined();
+      expect(db.lastAwardRpc).toBeUndefined();
     });
 
     it('refuse une séance à laquelle il manque une métrique du sport', async () => {
@@ -320,7 +339,7 @@ describe('POST /workouts (e2e)', () => {
       ).expect(400);
 
       expect(JSON.stringify(response.body)).toContain('reps');
-      expect(db.lastRpc).toBeUndefined();
+      expect(db.lastAwardRpc).toBeUndefined();
     });
 
     it('transmet le streak recalculé depuis l’historique', async () => {
@@ -331,9 +350,9 @@ describe('POST /workouts (e2e)', () => {
       await post(validBody()).expect(201);
 
       // Deux jours consécutifs derrière, plus aujourd'hui : trois.
-      expect(db.lastRpc?.args.p_streak_days).toBe(3);
+      expect(db.lastAwardRpc?.args.p_streak_days).toBe(3);
       // Le palier de 3 jours est franchi à cette séance.
-      expect(db.lastRpc?.args.p_streak_xp).toBe(10);
+      expect(db.lastAwardRpc?.args.p_streak_xp).toBe(10);
     });
   });
 
@@ -380,6 +399,20 @@ describe('POST /workouts (e2e)', () => {
       db.rpcError = { message: 'connection reset' };
 
       await post(validBody()).expect(500);
+    });
+
+    it('une panne narrative ne perd pas la séance', async () => {
+      // Le déblocage narratif est branché après l'octroi d'XP et hors de sa
+      // transaction : s'il tombe, la séance est déjà écrite et créditée. La
+      // remonter en 500 ferait croire au joueur qu'il doit ressaisir — et la
+      // resaisie serait refusée comme trop rapprochée. Le rattrapage se fait à
+      // la consultation suivante du codex.
+      db.narrativeError = { message: 'narrative indisponible' };
+
+      const response = await post(validBody()).expect(201);
+      const { award } = response.body as WorkoutCreated;
+
+      expect(award.xpAwarded).toBe(100);
     });
 
     it('traduit un sport inconnu en 400, pas en 500', async () => {
