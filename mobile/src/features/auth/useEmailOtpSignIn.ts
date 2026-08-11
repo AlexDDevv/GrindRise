@@ -59,7 +59,7 @@ export function useEmailOtpSignIn() {
     setIsSubmitting(false);
 
     if (otpError) {
-      setError(translateAuthError(otpError.message));
+      setError(translateAuthError(otpError.message, 'request'));
       return;
     }
 
@@ -88,7 +88,7 @@ export function useEmailOtpSignIn() {
     setIsSubmitting(false);
 
     if (verifyError) {
-      setError(translateAuthError(verifyError.message));
+      setError(translateAuthError(verifyError.message, 'verify'));
       return;
     }
 
@@ -127,18 +127,43 @@ function isPlausibleEmail(value: string): boolean {
  * Les messages de GoTrue sont en anglais et parfois cryptiques. On traduit les
  * cas que l'utilisateur peut réellement corriger, et on reste générique pour
  * le reste plutôt que d'afficher un message technique.
+ *
+ * L'étape est nécessaire, pas décorative : « invalid » qualifie l'adresse à
+ * l'envoi et le code à la vérification. Sans elle, une adresse mal formée
+ * s'annoncerait comme un code expiré et enverrait l'utilisateur corriger ce
+ * qui n'est pas en cause.
  */
-function translateAuthError(message: string): string {
+function translateAuthError(
+  message: string,
+  phase: 'request' | 'verify',
+): string {
   const normalized = message.toLowerCase();
+  const fallback = 'Connexion impossible pour le moment. Réessaie dans un instant.';
 
-  if (normalized.includes('expired') || normalized.includes('invalid')) {
-    return 'Code invalide ou expiré. Demande-en un nouveau.';
-  }
-
-  if (normalized.includes('rate limit') || normalized.includes('security purposes')) {
+  if (
+    normalized.includes('rate limit') ||
+    normalized.includes('security purposes')
+  ) {
     return 'Trop de demandes. Patiente une minute avant de réessayer.';
   }
 
-  console.warn('[auth] erreur Supabase non traduite :', message);
-  return 'Connexion impossible pour le moment. Réessaie dans un instant.';
+  if (phase === 'request') {
+    if (normalized.includes('email')) {
+      return 'Adresse email refusée. Vérifie l’orthographe.';
+    }
+
+    console.warn('[auth] erreur Supabase non traduite (envoi) :', message);
+    return fallback;
+  }
+
+  if (
+    normalized.includes('expired') ||
+    normalized.includes('invalid') ||
+    normalized.includes('token')
+  ) {
+    return 'Code invalide ou expiré. Demande-en un nouveau.';
+  }
+
+  console.warn('[auth] erreur Supabase non traduite (vérification) :', message);
+  return fallback;
 }
