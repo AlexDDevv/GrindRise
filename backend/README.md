@@ -62,6 +62,34 @@ lire un identifiant d'utilisateur depuis le corps ou l'URL de la requête.
 - `entitlements` n'est écrit que par le webhook RevenueCat. Le SDK client sert
   à l'affichage, jamais à autoriser une fonctionnalité payante.
 
+Le `ValidationPipe` global tourne en `forbidNonWhitelisted` : un champ non
+déclaré dans un DTO fait **échouer** la requête au lieu d'être ignoré. C'est ce
+qui rend visible un `xp` envoyé par un client malveillant. Si un DTO se heurte
+à cette validation, c'est le DTO qu'on corrige — jamais le réglage du pipe.
+
+## Enregistrement d'une séance
+
+`POST /workouts` insère `workout_logs`, `xp_events` et met à jour
+`user_progress`. PostgREST ne sait pas enchaîner ces trois écritures dans une
+transaction, et une interruption au milieu laisserait une séance sans XP que
+`recomputeProgress` ne rattraperait pas — il recalcule le cache depuis
+`xp_events`, il ne peut pas inventer l'événement manquant. Tout part donc
+ensemble, par la fonction Postgres `log_workout_with_xp`.
+
+Cette fonction ne porte **aucune règle de game design** : elle reçoit des
+montants déjà calculés et des plafonds sous forme de nombres. Ce qu'elle
+apporte, c'est l'atomicité et un verrou par profil, sans lequel deux requêtes
+simultanées franchiraient le plafond journalier ensemble. Le barème, lui, vit
+en fonctions pures dans `modules/gamification/xp-rules.ts`.
+
+`EXECUTE` sur cette fonction est révoqué pour `anon` et `authenticated` :
+Postgres l'accorde à `PUBLIC` par défaut, et sans cette révocation le mobile
+pourrait l'appeler avec le montant de son choix. Un test PGlite le vérifie.
+
+Un conflit sur l'index unique `(profile_id, source_type, source_id)` signifie
+« déjà crédité », pas « erreur » : il est traité comme tel, jamais remonté en
+500.
+
 ## Déploiement CapRover
 
 Le `captain-definition` et le `Dockerfile` sont dans ce dossier : déployer

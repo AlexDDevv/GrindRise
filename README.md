@@ -32,6 +32,12 @@ nécessaire.
 Règle centrale : **le client n'écrit jamais d'XP**. Il enregistre une séance,
 le serveur en déduit l'XP et écrit `xp_events`.
 
+Depuis la phase 2, `workout_logs` n'est plus dans la première catégorie : la
+RLS n'autorise plus le mobile à y écrire. Une séance insérée en direct n'aurait
+jamais d'XP mais compterait quand même pour le streak, ce qui suffisait à
+contourner tout le modèle. L'écriture passe par `POST /workouts`, qui insère la
+séance et son XP dans une même transaction Postgres.
+
 ## Lancer en local
 
 ### Mobile
@@ -39,9 +45,14 @@ le serveur en déduit l'XP et écrit `xp_events`.
 ```bash
 cd mobile
 pnpm install
-cp .env.example .env    # renseigner l'URL du projet Supabase + la clé anon
+cp .env.example .env    # URL + clé anon Supabase, et l'IP LAN de l'API
 pnpm exec expo start    # -c pour vider le cache Metro après un changement de .env
 ```
+
+`EXPO_PUBLIC_API_URL` ne peut **pas** être `localhost` : Expo Go tourne sur le
+téléphone, pour qui `localhost` est le téléphone lui-même. Il faut l'IP LAN de
+la machine de développement (`ip addr`), les deux appareils sur le même réseau.
+L'API écoute déjà sur `0.0.0.0`.
 
 `EXPO_PUBLIC_SUPABASE_URL` est l'**URL du projet** (`https://<ref>.supabase.co`),
 sans suffixe de chemin : le client ajoute lui-même `/rest/v1`, `/auth/v1`, etc.
@@ -100,6 +111,38 @@ mobile : seule la clé `anon` y a sa place (elle est protégée par la RLS).
 
 ## État actuel
 
-Squelette uniquement : navigation parcourable avec écrans placeholder côté
-mobile, modules NestJS structurés mais sans implémentation. Les tables Supabase
-ne sont pas encore créées.
+Le flux vertical de l'XP fonctionne : logger une séance depuis le mobile fait
+monter le niveau, et il n'existe aucun autre moyen d'en gagner.
+
+- **Base** : 8 tables, RLS deny-by-default, données de référence seedées.
+- **Backend** : authentification par JWT, `GET /users/me`, `POST /workouts`.
+- **Mobile** : connexion OTP, choix de classe, enregistrement d'une séance.
+
+Reste en placeholder : l'accueil, la progression et l'historique (phase 3).
+
+### Comment l'XP est attribuée
+
+Une séance vaut au maximum 100 XP : 60 de présence et jusqu'à 40 d'effort, sur
+une courbe concave. Le barème est commun à tous les sports — seule la référence
+d'effort change — pour qu'aucun ne soit mécaniquement plus rentable qu'un
+autre, la courbe de niveaux étant partagée.
+
+Anti-triche : deux séances créditées par jour, trente minutes minimum entre
+deux, sept jours d'antériorité maximum. Au-delà, la séance est enregistrée mais
+ne rapporte rien — l'app reste un tracker.
+
+Le streak compte les jours **locaux** consécutifs, dans le fuseau du joueur
+(`profiles.timezone`) : en UTC, il casserait à 2 h du matin en France. Les
+paliers (3, 7, 14, 30 jours, puis tous les 30) versent un bonus fixe et non un
+multiplicateur, qui doublerait aussi le gain d'une séance gonflée.
+
+Ces règles vivent dans `backend/src/modules/gamification/xp-rules.ts`, en
+fonctions pures testées sans base. La courbe de niveaux, elle, reste en base :
+la rééquilibrer est rétroactif, `recomputeProgress` réaligne tous les niveaux
+sans toucher un seul `xp_events`.
+
+### Ce qui reste à valider à la main
+
+Aucun appareil ni émulateur n'est disponible en développement : le rendu et le
+parcours dans Expo Go n'ont jamais été joués. Voir la section « État actuel »
+de `docs/ROADMAP.md` pour la liste des points à vérifier.
