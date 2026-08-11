@@ -297,7 +297,23 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      log_workout_with_xp: {
+        Args: {
+          p_daily_credited_limit: number;
+          p_day_end: string;
+          p_day_start: string;
+          p_last_workout_on: string;
+          p_metrics: Json;
+          p_min_gap_minutes: number;
+          p_performed_at: string;
+          p_profile_id: string;
+          p_sport_id: string;
+          p_streak_days: number;
+          p_streak_xp: number;
+          p_workout_xp: number;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       entitlement_plan: 'freemium' | 'subscription' | 'lifetime';

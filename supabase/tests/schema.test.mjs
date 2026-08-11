@@ -294,12 +294,30 @@ describe('RLS vue depuis un client mobile', () => {
     assert.match(message, /row-level security/);
   });
 
-  test('logger sa propre séance est autorisé', async () => {
-    const { rows } = await asUser(
-      moi,
-      `insert into public.workout_logs (profile_id, sport_id) values ('${moi}', 'test') returning id`,
+  test('logger sa propre séance en direct est rejeté — l’API est le seul chemin', async () => {
+    // Une séance insérée hors de l'API n'aurait jamais d'XP, mais compterait
+    // quand même pour le streak : de quoi se fabriquer 365 jours de chaîne et
+    // encaisser tous les paliers d'un coup.
+    const message = await rejects(() =>
+      asUser(moi, `insert into public.workout_logs (profile_id, sport_id) values ('${moi}', 'test')`),
     );
-    assert.equal(rows.length, 1);
+    assert.match(message, /row-level security/);
+  });
+
+  test('appeler la RPC d’octroi d’XP est refusé', async () => {
+    // Postgres accorde EXECUTE à PUBLIC par défaut : sans révocation explicite,
+    // ce seul appel suffirait à s'attribuer 999 999 XP.
+    const message = await rejects(() =>
+      asUser(
+        moi,
+        `select public.log_workout_with_xp(
+           '${moi}'::uuid, 'test', now(), '{}'::jsonb,
+           999999, 0, 1, current_date,
+           now() - interval '1 hour', now() + interval '1 hour', 2, 30
+         )`,
+      ),
+    );
+    assert.match(message, /permission denied/i);
   });
 
   test('gonfler sa progression ne touche aucune ligne', async () => {
@@ -331,5 +349,119 @@ describe('RLS vue depuis un client mobile', () => {
       [moi],
     );
     assert.equal(rows[0].plan, 'freemium');
+  });
+});
+
+describe('log_workout_with_xp', () => {
+  /**
+   * Appelle la RPC comme le ferait l'API.
+   *
+   * La fenêtre de jour est volontairement large (± 1 jour) : elle est un
+   * paramètre de la fonction, pas une règle qu'elle applique, et cela rend le
+   * test indépendant de l'heure à laquelle il tourne.
+   */
+  async function logWorkout(profileId, options = {}) {
+    const {
+      performedAt = 'now()',
+      workoutXp = 100,
+      streakXp = 0,
+      streakDays = 1,
+      dailyLimit = 2,
+      minGapMinutes = 30,
+    } = options;
+
+    const { rows } = await db.query(
+      `select public.log_workout_with_xp(
+         $1::uuid, 'test', ${performedAt}, '{"reps": 10}'::jsonb,
+         $2, $3, $4, current_date,
+         now() - interval '1 day', now() + interval '1 day',
+         $5, $6
+       ) as result`,
+      [profileId, workoutXp, streakXp, streakDays, dailyLimit, minGapMinutes],
+    );
+
+    return rows[0].result;
+  }
+
+  test('crédite la séance et fait monter le niveau', async () => {
+    const userId = await createUser('rpc-nominal@grindrise.test');
+    const result = await logWorkout(userId);
+
+    assert.equal(result.xp_awarded, 100);
+    assert.equal(result.capped_reason, null);
+    assert.equal(result.progress.current_xp, 100);
+    // Le premier palier de la courbe seedée est à 100 XP cumulés.
+    assert.equal(result.progress.level, 2);
+    assert.equal(result.progress.streak_days, 1);
+    assert.ok(result.progress.last_workout_on);
+    assert.equal(result.workout.sport_id, 'test');
+  });
+
+  test('le bonus de streak est un événement distinct de la séance', async () => {
+    const userId = await createUser('rpc-streak@grindrise.test');
+    const result = await logWorkout(userId, { workoutXp: 60, streakXp: 25 });
+
+    assert.equal(result.xp_awarded, 85);
+
+    const { rows } = await db.query(
+      `select source_type::text as type, amount from public.xp_events
+       where profile_id = $1 order by source_type::text`,
+      [userId],
+    );
+    assert.deepEqual(rows, [
+      { type: 'streak', amount: 25 },
+      { type: 'workout', amount: 60 },
+    ]);
+  });
+
+  test('au-delà du plafond journalier, la séance est enregistrée sans XP', async () => {
+    const userId = await createUser('rpc-plafond@grindrise.test');
+    await logWorkout(userId, { performedAt: "now() - interval '6 hours'" });
+    await logWorkout(userId, { performedAt: "now() - interval '3 hours'" });
+
+    const troisieme = await logWorkout(userId, { performedAt: "now() - interval '1 hour'" });
+
+    assert.equal(troisieme.capped_reason, 'daily_limit');
+    assert.equal(troisieme.xp_awarded, 0);
+    assert.equal(troisieme.progress.current_xp, 200);
+
+    // La séance existe quand même : l'app reste un tracker, seule l'XP est
+    // plafonnée.
+    const { rows } = await db.query(
+      `select count(*)::int as total from public.workout_logs where profile_id = $1`,
+      [userId],
+    );
+    assert.equal(rows[0].total, 3);
+  });
+
+  test('deux séances trop rapprochées : la seconde n’est pas créditée', async () => {
+    const userId = await createUser('rpc-rapproche@grindrise.test');
+    await logWorkout(userId, { performedAt: "now() - interval '2 hours'" });
+
+    const seconde = await logWorkout(userId, {
+      performedAt: "now() - interval '110 minutes'",
+    });
+
+    assert.equal(seconde.capped_reason, 'too_close');
+    assert.equal(seconde.xp_awarded, 0);
+    assert.equal(seconde.progress.current_xp, 100);
+  });
+
+  test('le cache converge vers la somme des événements', async () => {
+    const userId = await createUser('rpc-convergence@grindrise.test');
+    await logWorkout(userId, { performedAt: "now() - interval '5 hours'" });
+    await logWorkout(userId, { performedAt: "now() - interval '1 hour'", streakXp: 10 });
+
+    const { rows } = await db.query(
+      `select p.current_xp,
+              (select coalesce(sum(amount), 0)::int from public.xp_events where profile_id = $1) as somme,
+              (select max(level) from public.level_thresholds t where t.xp_required <= p.current_xp) as palier
+       from public.user_progress p where p.profile_id = $1`,
+      [userId],
+    );
+
+    assert.equal(rows[0].current_xp, rows[0].somme);
+    assert.equal(rows[0].current_xp, 210);
+    assert.equal(rows[0].palier, 2);
   });
 });
