@@ -21,6 +21,7 @@ export type MainTabParamList = {
   Home: undefined;
   Workouts: NavigatorScreenParams<WorkoutsStackParamList> | undefined;
   Progression: undefined;
+  Codex: undefined;
 };
 
 /** Pile racine : bascule entre auth / onboarding / app selon l'état du store. */

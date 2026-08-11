@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { HomeScreen } from '../features/home/screens/HomeScreen';
+import { CodexScreen } from '../features/narrative/screens/CodexScreen';
 import { ProgressionScreen } from '../features/progression/screens/ProgressionScreen';
 import type { MainTabParamList } from './types';
 import { WorkoutsStack } from './WorkoutsStack';
@@ -35,6 +36,14 @@ export function MainTabs() {
         options={{
           title: 'Progression',
           tabBarIcon: ({ color, size }) => <Ionicons name="trending-up" color={color} size={size} />,
+        }}
+      />
+      <Tab.Screen
+        name="Codex"
+        component={CodexScreen}
+        options={{
+          title: 'Codex',
+          tabBarIcon: ({ color, size }) => <Ionicons name="book" color={color} size={size} />,
         }}
       />
     </Tab.Navigator>
