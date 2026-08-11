@@ -77,6 +77,9 @@ const db: {
   /** Réponse de `count_workouts_by_sport`, la RPC du module narratif. */
   sessionsBySport: { sport_id: string; sessions: number }[];
   narrativeError: { message: string } | null;
+  /** Contenu narratif en base, et déblocages déjà acquis. */
+  beats: Record<string, unknown>[];
+  unlocks: { profile_id: string; beat_id: string }[];
   lastProfileQuery?: unknown;
 } = {
   workoutDays: [],
@@ -84,14 +87,28 @@ const db: {
   rpcError: null,
   sessionsBySport: [],
   narrativeError: null,
+  beats: [],
+  unlocks: [],
 };
 
 function tableBuilder(table: string) {
   const state: { value?: unknown } = {};
+  let upserted: { beat_id: string }[] | null = null;
 
   const resolve = (): Promise<{ data: unknown; error: null }> => {
+    // Un upsert en cours renvoie les lignes réellement insérées, comme le fait
+    // `on conflict do nothing` : c'est ce qui distingue un déblocage neuf d'un
+    // déblocage déjà acquis.
+    if (upserted) return Promise.resolve({ data: upserted, error: null });
+
     if (table === 'workout_logs') {
       return Promise.resolve({ data: db.workoutDays, error: null });
+    }
+    if (table === 'narrative_beats') {
+      return Promise.resolve({ data: db.beats, error: null });
+    }
+    if (table === 'user_narrative_unlocks') {
+      return Promise.resolve({ data: db.unlocks, error: null });
     }
     return Promise.resolve({ data: [], error: null });
   };
@@ -100,6 +117,15 @@ function tableBuilder(table: string) {
     select: () => builder,
     gte: () => builder,
     order: () => builder,
+    upsert: (rows: { profile_id: string; beat_id: string }[]) => {
+      const nouveaux = rows.filter(
+        (row) => !db.unlocks.some((held) => held.beat_id === row.beat_id),
+      );
+
+      db.unlocks.push(...nouveaux);
+      upserted = nouveaux.map((row) => ({ beat_id: row.beat_id }));
+      return builder;
+    },
     eq: (_column: string, value: unknown) => {
       state.value = value;
       return builder;
@@ -209,6 +235,8 @@ describe('POST /workouts (e2e)', () => {
     db.rpcError = null;
     db.narrativeError = null;
     db.sessionsBySport = [];
+    db.beats = [];
+    db.unlocks = [];
     db.lastAwardRpc = undefined;
     db.rpcResult = {
       workout: WORKOUT_ROW,
@@ -372,7 +400,70 @@ describe('POST /workouts (e2e)', () => {
           leveledUp: true,
           cappedReason: null,
         },
+        narrative: { unlocked: [] },
       });
+    });
+
+    it('annonce le fragment que la séance vient d’ouvrir', async () => {
+      // Le fragment est renvoyé pour que le mobile puisse l'annoncer au bon
+      // moment, pas pour remplacer le codex : c'est lui qui reste la source de
+      // vérité, et qui datera la lecture.
+      db.beats = [
+        {
+          id: 'b1e4d7a2-0000-4000-8000-000000000001',
+          track: 'sport:course',
+          order_index: 1,
+          trigger_type: 'sport_sessions_count',
+          trigger_value: 3,
+          sport_id: 'course',
+          title: '',
+          body: '',
+          created_at: '2026-08-11T09:00:00.000Z',
+        },
+      ];
+      db.sessionsBySport = [{ sport_id: 'course', sessions: 3 }];
+
+      const response = await post(validBody()).expect(201);
+      const { narrative } = response.body as WorkoutCreated;
+
+      expect(narrative.unlocked.map((beat) => beat.track)).toEqual([
+        'sport:course',
+      ]);
+    });
+
+    it('n’annonce pas deux fois un fragment déjà débloqué', async () => {
+      const beatId = 'b1e4d7a2-0000-4000-8000-000000000002';
+
+      db.beats = [
+        {
+          id: beatId,
+          track: 'main',
+          order_index: 1,
+          trigger_type: 'global_level',
+          trigger_value: 2,
+          sport_id: null,
+          title: '',
+          body: '',
+          created_at: '2026-08-11T09:00:00.000Z',
+        },
+      ];
+      db.unlocks = [{ profile_id: PROFILE_ID, beat_id: beatId }];
+
+      const response = await post(validBody()).expect(201);
+      const { narrative } = response.body as WorkoutCreated;
+
+      expect(narrative.unlocked).toEqual([]);
+    });
+
+    it('une panne narrative laisse le champ vide plutôt que d’échouer', async () => {
+      db.narrativeError = { message: 'narrative indisponible' };
+
+      const response = await post(validBody()).expect(201);
+      const { narrative } = response.body as WorkoutCreated;
+
+      // L'absence de fragment ne prouve donc pas qu'aucun n'a été franchi —
+      // c'est documenté sur le type, et le codex rattrape.
+      expect(narrative.unlocked).toEqual([]);
     });
 
     it('dit pourquoi une séance plafonnée n’a rien rapporté', async () => {

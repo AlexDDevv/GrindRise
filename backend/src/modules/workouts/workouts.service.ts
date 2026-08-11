@@ -4,7 +4,10 @@ import {
   GamificationService,
   type WorkoutAward,
 } from '../gamification/gamification.service';
-import { NarrativeService } from '../narrative/narrative.service';
+import {
+  NarrativeService,
+  type NarrativeBeat,
+} from '../narrative/narrative.service';
 // Import de type seul, donc effacé à la compilation : aucune dépendance à
 // l'exécution, et la règle « aucun module n'importe les providers internes d'un
 // autre » reste tenue. Réutiliser la forme de `GET /users/me` évite au mobile
@@ -31,6 +34,20 @@ export type WorkoutCreated = Omit<UserWithProgress, 'progress'> & {
     levelAfter: number;
     leveledUp: boolean;
     cappedReason: WorkoutAward['cappedReason'];
+  };
+  /**
+   * Ce que la séance a ouvert côté narratif.
+   *
+   * Séparé de `award`, qui ne parle que d'XP : les deux se rééquilibrent
+   * indépendamment, et un fragment débloqué n'est pas un gain chiffré.
+   *
+   * Toujours vide si la synchronisation a échoué — elle est best-effort, donc
+   * l'absence de fragment ici ne prouve pas qu'aucun n'a été franchi. Le codex
+   * reste la source de vérité, ce champ n'est qu'une occasion de l'annoncer au
+   * bon moment.
+   */
+  narrative: {
+    unlocked: NarrativeBeat[];
   };
 };
 
@@ -81,8 +98,13 @@ export class WorkoutsService {
     // son échec ne doit pas perdre une séance déjà enregistrée. Le rattrapage
     // n'est pas laissé au hasard pour autant — `getState` resynchronise à
     // chaque consultation du codex, donc un déblocage manqué revient tout seul.
+    let unlocked: NarrativeBeat[] = [];
+
     try {
-      await this.narrative.syncUnlocks(profileId, award.progress.level);
+      unlocked = await this.narrative.syncUnlocks(
+        profileId,
+        award.progress.level,
+      );
     } catch (error) {
       this.logger.warn(
         `Synchronisation narrative échouée pour ${profileId} : ${
@@ -103,6 +125,7 @@ export class WorkoutsService {
         leveledUp: award.levelAfter > award.levelBefore,
         cappedReason: award.cappedReason,
       },
+      narrative: { unlocked },
     };
   }
 }
