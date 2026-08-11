@@ -352,6 +352,227 @@ describe('RLS vue depuis un client mobile', () => {
   });
 });
 
+describe('narrative_beats', () => {
+  test('un beat de trame principale se déclenche au niveau global', async () => {
+    await db.query(
+      `insert into public.narrative_beats (track, order_index, trigger_type, trigger_value, title, body)
+       values ('main', 901, 'global_level', 3, '', '')`,
+    );
+
+    const { rows } = await db.query(
+      `select sport_id from public.narrative_beats where order_index = 901`,
+    );
+    // La trame principale n'appartient à aucun sport : la colonne générée doit
+    // rester nulle, sinon la FK vers `sports` refuserait la ligne.
+    assert.equal(rows[0].sport_id, null);
+  });
+
+  test('un beat annexe porte le sport extrait de son track', async () => {
+    await db.query(
+      `insert into public.narrative_beats (track, order_index, trigger_type, trigger_value, title, body)
+       values ('sport:test', 902, 'sport_sessions_count', 5, '', '')`,
+    );
+
+    const { rows } = await db.query(
+      `select sport_id from public.narrative_beats where order_index = 902`,
+    );
+    assert.equal(rows[0].sport_id, 'test');
+  });
+
+  test('un sport inexistant dans le track est rejeté', async () => {
+    // Une faute de frappe dans un import de contenu produirait sinon un beat
+    // que personne ne débloquera jamais, sans le moindre signal.
+    const message = await rejects(() =>
+      db.query(
+        `insert into public.narrative_beats (track, order_index, trigger_type, trigger_value, title, body)
+         values ('sport:quidditch', 903, 'sport_sessions_count', 5, '', '')`,
+      ),
+    );
+    assert.match(message, /narrative_beats_sport_id_fkey/);
+  });
+
+  test('un track annexe déclenché par le niveau global est rejeté', async () => {
+    // C'est l'erreur d'architecture que le schéma doit rendre impossible : une
+    // trame annexe ouverte sans que le sport ait jamais été pratiqué.
+    const message = await rejects(() =>
+      db.query(
+        `insert into public.narrative_beats (track, order_index, trigger_type, trigger_value, title, body)
+         values ('sport:test', 904, 'global_level', 5, '', '')`,
+      ),
+    );
+    assert.match(message, /narrative_beats_track_trigger_coherent/);
+  });
+
+  test('la trame principale ne peut pas se déclencher au nombre de séances', async () => {
+    const message = await rejects(() =>
+      db.query(
+        `insert into public.narrative_beats (track, order_index, trigger_type, trigger_value, title, body)
+         values ('main', 905, 'sport_sessions_count', 5, '', '')`,
+      ),
+    );
+    assert.match(message, /narrative_beats_track_trigger_coherent/);
+  });
+
+  test('deux beats ne peuvent pas occuper le même rang dans une trame', async () => {
+    const message = await rejects(() =>
+      db.query(
+        `insert into public.narrative_beats (track, order_index, trigger_type, trigger_value, title, body)
+         values ('main', 901, 'global_level', 4, '', '')`,
+      ),
+    );
+    assert.match(message, /narrative_beats_track_order_unique/);
+  });
+});
+
+describe('user_narrative_unlocks', () => {
+  let userId;
+  let beatId;
+
+  before(async () => {
+    userId = await createUser('codex@grindrise.test');
+    beatId = (
+      await db.query(
+        `insert into public.narrative_beats (track, order_index, trigger_type, trigger_value, title, body)
+         values ('main', 910, 'global_level', 1, '', '') returning id`,
+      )
+    ).rows[0].id;
+  });
+
+  test('débloquer deux fois le même beat est impossible', async () => {
+    // C'est cette contrainte qui rend la synchronisation rejouable : l'API peut
+    // la relancer à chaque séance sans se demander ce qui existe déjà.
+    await db.query(
+      `insert into public.user_narrative_unlocks (profile_id, beat_id) values ($1, $2)`,
+      [userId, beatId],
+    );
+
+    const message = await rejects(() =>
+      db.query(
+        `insert into public.user_narrative_unlocks (profile_id, beat_id) values ($1, $2)`,
+        [userId, beatId],
+      ),
+    );
+    assert.match(message, /user_narrative_unlocks_pkey/);
+  });
+
+  test('un déblocage part non lu', async () => {
+    const { rows } = await db.query(
+      `select read_at from public.user_narrative_unlocks where profile_id = $1`,
+      [userId],
+    );
+    assert.equal(rows[0].read_at, null);
+  });
+});
+
+describe('RLS narrative vue depuis un client mobile', () => {
+  let moi;
+  let autrui;
+  let beatId;
+
+  before(async () => {
+    moi = await createUser('codex-moi@grindrise.test');
+    autrui = await createUser('codex-autrui@grindrise.test');
+    beatId = (
+      await db.query(
+        `insert into public.narrative_beats (track, order_index, trigger_type, trigger_value, title, body)
+         values ('main', 920, 'global_level', 1, '', '') returning id`,
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into public.user_narrative_unlocks (profile_id, beat_id) values ($1, $2)`,
+      [autrui, beatId],
+    );
+  });
+
+  test('les beats sont lisibles publiquement', async () => {
+    const { rows } = await asUser(moi, `select id from public.narrative_beats`);
+    assert.ok(rows.length > 0);
+  });
+
+  test('les déblocages d’autrui sont invisibles', async () => {
+    const { rows } = await asUser(moi, `select beat_id from public.user_narrative_unlocks`);
+    assert.equal(rows.length, 0);
+  });
+
+  test('se débloquer un beat soi-même est rejeté', async () => {
+    // Sans ça, le client s'ouvrirait tout le codex d'un insert, et `unlocked_at`
+    // ne voudrait plus rien dire.
+    const message = await rejects(() =>
+      asUser(
+        moi,
+        `insert into public.user_narrative_unlocks (profile_id, beat_id)
+         values ('${moi}', '${beatId}')`,
+      ),
+    );
+    assert.match(message, /row-level security/);
+  });
+
+  test('se marquer un beat comme lu ne touche aucune ligne', async () => {
+    // Le marquage passe par l'API : ici la RLS filtre en amont, donc l'UPDATE
+    // réussit à vide plutôt que d'échouer.
+    await db.query(
+      `insert into public.user_narrative_unlocks (profile_id, beat_id) values ($1, $2)`,
+      [moi, beatId],
+    );
+
+    const res = await asUser(
+      moi,
+      `update public.user_narrative_unlocks set read_at = now() where profile_id = '${moi}'`,
+    );
+    assert.equal(res.affectedRows, 0);
+  });
+
+  test('écrire du contenu narratif est rejeté', async () => {
+    const message = await rejects(() =>
+      asUser(
+        moi,
+        `insert into public.narrative_beats (track, order_index, trigger_type, trigger_value, title, body)
+         values ('main', 921, 'global_level', 1, '', '')`,
+      ),
+    );
+    assert.match(message, /row-level security/);
+  });
+});
+
+describe('count_workouts_by_sport', () => {
+  test('compte les séances par sport, sans regarder la classe du joueur', async () => {
+    const userId = await createUser('compte-sports@grindrise.test');
+    await db.query(`insert into public.sports (id, name) values ('test2', 'Test 2')`);
+
+    await db.query(
+      `insert into public.workout_logs (profile_id, sport_id) values ($1, 'test'), ($1, 'test'), ($1, 'test2')`,
+      [userId],
+    );
+
+    const { rows } = await db.query(
+      `select sport_id, sessions from public.count_workouts_by_sport($1) order by sport_id`,
+      [userId],
+    );
+
+    assert.deepEqual(rows, [
+      { sport_id: 'test', sessions: 2 },
+      { sport_id: 'test2', sessions: 1 },
+    ]);
+  });
+
+  test('un profil sans séance ne renvoie aucune ligne', async () => {
+    const userId = await createUser('compte-vide@grindrise.test');
+    const { rows } = await db.query(
+      `select * from public.count_workouts_by_sport($1)`,
+      [userId],
+    );
+    assert.equal(rows.length, 0);
+  });
+
+  test('le mobile ne peut pas l’appeler', async () => {
+    const userId = await createUser('compte-interdit@grindrise.test');
+    const message = await rejects(() =>
+      asUser(userId, `select * from public.count_workouts_by_sport('${userId}'::uuid)`),
+    );
+    assert.match(message, /permission denied/i);
+  });
+});
+
 describe('log_workout_with_xp', () => {
   /**
    * Appelle la RPC comme le ferait l'API.

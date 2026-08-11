@@ -127,6 +127,50 @@ export type Database = {
         }
         Relationships: []
       }
+      narrative_beats: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          order_index: number
+          sport_id: string | null
+          title: string
+          track: string
+          trigger_type: string
+          trigger_value: number
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          order_index: number
+          sport_id?: string | null
+          title: string
+          track: string
+          trigger_type: string
+          trigger_value: number
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          sport_id?: string | null
+          title?: string
+          track?: string
+          trigger_type?: string
+          trigger_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "narrative_beats_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           class_id: string | null
@@ -179,6 +223,42 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      user_narrative_unlocks: {
+        Row: {
+          beat_id: string
+          profile_id: string
+          read_at: string | null
+          unlocked_at: string
+        }
+        Insert: {
+          beat_id: string
+          profile_id: string
+          read_at?: string | null
+          unlocked_at?: string
+        }
+        Update: {
+          beat_id?: string
+          profile_id?: string
+          read_at?: string | null
+          unlocked_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_narrative_unlocks_beat_id_fkey"
+            columns: ["beat_id"]
+            isOneToOne: false
+            referencedRelation: "narrative_beats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_narrative_unlocks_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_progress: {
         Row: {
@@ -297,6 +377,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      count_workouts_by_sport: {
+        Args: { p_profile_id: string }
+        Returns: {
+          sessions: number
+          sport_id: string
+        }[]
+      }
       log_workout_with_xp: {
         Args: {
           p_daily_credited_limit: number
