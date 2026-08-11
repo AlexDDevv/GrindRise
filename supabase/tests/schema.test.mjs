@@ -362,6 +362,7 @@ describe('log_workout_with_xp', () => {
    */
   async function logWorkout(profileId, options = {}) {
     const {
+      sportId = 'test',
       performedAt = 'now()',
       workoutXp = 100,
       streakXp = 0,
@@ -372,16 +373,38 @@ describe('log_workout_with_xp', () => {
 
     const { rows } = await db.query(
       `select public.log_workout_with_xp(
-         $1::uuid, 'test', ${performedAt}, '{"reps": 10}'::jsonb,
-         $2, $3, $4, current_date,
+         $1::uuid, $2, ${performedAt}, '{"reps": 10}'::jsonb,
+         $3, $4, $5, current_date,
          now() - interval '1 day', now() + interval '1 day',
-         $5, $6
+         $6, $7
        ) as result`,
-      [profileId, workoutXp, streakXp, streakDays, dailyLimit, minGapMinutes],
+      [profileId, sportId, workoutXp, streakXp, streakDays, dailyLimit, minGapMinutes],
     );
 
     return rows[0].result;
   }
+
+  test('un sport inconnu est refusé avec un code que l’API sait traduire', async () => {
+    // Sans ce contrôle, la clé étrangère refuserait aussi — mais l'API ne
+    // pourrait pas distinguer cette violation d'une panne, et répondrait 500 à
+    // ce qui est une faute de requête.
+    const userId = await createUser('sport-inconnu@grindrise.test');
+
+    try {
+      await logWorkout(userId, { sportId: 'quidditch' });
+      assert.fail('la requête a réussi alors qu’elle devait être rejetée');
+    } catch (error) {
+      assert.equal(error.code, 'GR001');
+      assert.match(error.message, /sport inconnu/i);
+    }
+
+    // Rien n'a été écrit : le contrôle précède l'insertion.
+    const { rows } = await db.query(
+      `select count(*)::int as total from public.workout_logs where profile_id = $1`,
+      [userId],
+    );
+    assert.equal(rows[0].total, 0);
+  });
 
   test('crédite la séance et fait monter le niveau', async () => {
     const userId = await createUser('rpc-nominal@grindrise.test');

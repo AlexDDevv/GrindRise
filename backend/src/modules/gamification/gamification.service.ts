@@ -37,6 +37,18 @@ type UserProgress = Database['public']['Tables']['user_progress']['Row'];
  */
 const STREAK_HISTORY_DAYS = 400;
 
+/**
+ * SQLSTATE que nos fonctions Postgres lèvent pour une valeur de référence
+ * inconnue — un sport qui n'existe pas, aujourd'hui.
+ *
+ * Contrat déclaré dans la migration `reject_unknown_sport` : la classe `GR0xx`
+ * est réservée aux erreurs métier de nos fonctions, à traduire en 400. Sans ce
+ * code, il faudrait soit relire `sports` avant chaque séance, soit reconnaître
+ * une violation de clé étrangère dans un message d'erreur que Postgres ne
+ * garantit pas.
+ */
+const INVALID_REFERENCE = 'GR001';
+
 export type XpBreakdown = {
   /** Part de présence : versée dès qu'une séance est créditée. */
   attendance: number;
@@ -166,6 +178,12 @@ export class GamificationService {
     );
 
     if (error) {
+      if (error.code === INVALID_REFERENCE) {
+        // Faute du client, pas panne du serveur : la fonction l'annonce
+        // elle-même par son SQLSTATE, sans qu'on ait à lire un message.
+        throw new BadRequestException(`Sport inconnu : ${input.sportId}.`);
+      }
+
       this.logger.error(
         `Enregistrement de séance échoué pour ${profileId} : ${error.message}`,
       );

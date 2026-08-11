@@ -67,7 +67,7 @@ const WORKOUT_ROW = {
 const db: {
   workoutDays: { performed_at: string }[];
   rpcResult: unknown;
-  rpcError: { message: string } | null;
+  rpcError: { message: string; code?: string } | null;
   lastRpc?: { fn: string; args: Record<string, unknown> };
   lastProfileQuery?: unknown;
 } = {
@@ -380,6 +380,18 @@ describe('POST /workouts (e2e)', () => {
       db.rpcError = { message: 'connection reset' };
 
       await post(validBody()).expect(500);
+    });
+
+    it('traduit un sport inconnu en 400, pas en 500', async () => {
+      // La fonction Postgres annonce elle-même la faute par son SQLSTATE. Sans
+      // ce contrat, une requête malformée serait indistinguable d'une panne.
+      db.rpcError = { message: 'sport inconnu : quidditch', code: 'GR001' };
+
+      const response = await post(validBody({ sportId: 'quidditch' })).expect(
+        400,
+      );
+
+      expect(JSON.stringify(response.body)).toContain('quidditch');
     });
   });
 });
