@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
+import { AuthModule } from './auth/auth.module';
 import { validateEnv } from './config/env.config';
 import { HealthModule } from './health/health.module';
 import { EntitlementsModule } from './modules/entitlements/entitlements.module';
@@ -26,6 +27,8 @@ import { SupabaseModule } from './supabase/supabase.module';
       validate: validateEnv,
     }),
     SupabaseModule,
+    // Avant les modules métier : il enregistre le guard global qui les protège.
+    AuthModule,
     HealthModule,
     UsersModule,
     WorkoutsModule,

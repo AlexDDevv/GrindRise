@@ -5,6 +5,8 @@ import {
   Post,
 } from '@nestjs/common';
 
+import { Public } from '../../auth/public.decorator';
+
 @Controller('webhooks')
 export class EntitlementsController {
   /**
@@ -17,7 +19,13 @@ export class EntitlementsController {
    *    EXPIRATION, NON_RENEWING_PURCHASE pour le lifetime…) ;
    * 3. mettre à jour `entitlements` de façon idempotente ;
    * 4. répondre 200 rapidement — RevenueCat rejoue sur toute autre réponse.
+   *
+   * `@Public()` : l'appelant est RevenueCat, pas un utilisateur — il n'a aucun
+   * JWT Supabase à présenter. La route n'est donc pas ouverte, elle est
+   * protégée autrement, par le secret partagé du point 1. Tant que celui-ci
+   * n'est pas vérifié, l'endpoint reste en 501.
    */
+  @Public()
   @Post('revenuecat')
   @HttpCode(200)
   handleRevenueCat(): unknown {
