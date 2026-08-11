@@ -30,6 +30,7 @@ src/
     users/           profils
     workouts/        logs d'entraînement
     gamification/    XP, niveaux, anti-triche
+    narrative/       trames, déblocage des beats, codex
     entitlements/    webhook RevenueCat, droits d'accès
 worker/        emplacement du futur worker de notifications (voir son README)
 ```
@@ -89,6 +90,45 @@ pourrait l'appeler avec le montant de son choix. Un test PGlite le vérifie.
 Un conflit sur l'index unique `(profile_id, source_type, source_id)` signifie
 « déjà crédité », pas « erreur » : il est traité comme tel, jamais remonté en
 500.
+
+## Déblocage narratif
+
+Deux axes de contenu, deux sources de déclenchement :
+
+| Trame | Trigger | Source |
+|---|---|---|
+| Principale (`track = 'main'`) | `global_level` | `user_progress.level` |
+| Annexe (`track = 'sport:<id>'`) | `sport_sessions_count` | `count(workout_logs)` du sport |
+
+**La classe du joueur ne participe pas au déblocage.** Elle est choisie une fois
+à la création, ne change jamais, et ne pilote que le ton de la trame principale.
+Une trame annexe s'ouvre parce que le sport est pratiqué — c'est ce qui permet à
+un triathlète de garder une seule classe tout en ouvrant trois voies. Le type
+`PlayerNarrativeState` ne porte donc ni `class_id` ni rien qui s'en approche :
+si la classe apparaît un jour dans ce calcul, c'est une régression.
+
+Un déblocage est un **événement explicite** écrit dans `user_narrative_unlocks`,
+jamais déduit à l'affichage — même logique que `xp_events`. Sans ça,
+`unlocked_at` ne voudrait rien dire et « jamais vu » deviendrait indiscernable de
+« déjà lu ». La clé primaire composite `(profile_id, beat_id)` rend la
+synchronisation rejouable sans précaution.
+
+`NarrativeService.syncUnlocks()` est appelée après l'enregistrement d'une séance,
+**hors de sa transaction et en best-effort** : à ce moment-là l'XP est déjà
+créditée, et remonter une panne narrative en 500 ferait ressaisir une séance qui
+serait alors refusée comme trop rapprochée. Le rattrapage n'est pas laissé au
+hasard pour autant — `getState()` resynchronise à chaque consultation du codex.
+
+| Route | Effet |
+|---|---|
+| `GET /narrative` | État groupé par trame. Ne renvoie **que** les beats débloqués |
+| `POST /narrative/beats/:beatId/read` | Date la première consultation. Idempotent, 404 sur un beat non débloqué |
+
+`narrative_beats` est en lecture publique, comme les autres tables de contenu :
+un client déterminé peut donc lire du texte non débloqué directement en base.
+L'API, elle, ne sert jamais un fragment non gagné. Si le spoil devient un vrai
+sujet, la policy peut être resserrée aux beats présents dans
+`user_narrative_unlocks` sans rien casser côté mobile, qui passe déjà par l'API.
 
 ## Déploiement CapRover
 
