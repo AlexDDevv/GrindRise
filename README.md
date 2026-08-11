@@ -46,9 +46,14 @@ pnpm exec expo start    # -c pour vider le cache Metro après un changement de .
 `EXPO_PUBLIC_SUPABASE_URL` est l'**URL du projet** (`https://<ref>.supabase.co`),
 sans suffixe de chemin : le client ajoute lui-même `/rest/v1`, `/auth/v1`, etc.
 
-Scanner le QR code avec Expo Go (Android/iOS). Le squelette démarre même sans
-`.env` : les appels Supabase sont simplement désactivés, et l'écran de connexion
-propose une session de développement pour parcourir la navigation.
+Scanner le QR code avec Expo Go (Android/iOS). L'app démarre même sans `.env`,
+mais l'écran de connexion affiche alors un message de configuration manquante :
+il n'existe aucun moyen d'entrer sans un projet Supabase joignable.
+
+La connexion se fait par **code à usage unique envoyé par email**. Elle suppose
+que le gabarit « Magic Link » du dashboard Supabase (Authentication > Email
+Templates) contienne `{{ .Token }}` et non `{{ .ConfirmationURL }}` — sinon
+l'email porte un lien et aucun code.
 
 Builds iOS/Android : via **EAS Build** (build cloud, pas de Mac requis) — à
 configurer le moment venu avec `pnpm dlx eas-cli build:configure`.
