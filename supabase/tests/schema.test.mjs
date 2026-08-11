@@ -64,6 +64,18 @@ async function asUser(profileId, sql) {
   }
 }
 
+/** Exécute une requête en visiteur non connecté (clé anon, aucune session). */
+async function asAnon(sql) {
+  await db.exec(
+    `set role anon; select set_config('request.jwt.claim.sub', '', false);`,
+  );
+  try {
+    return await db.query(sql);
+  } finally {
+    await db.exec('reset role;');
+  }
+}
+
 /** Vérifie qu'une requête est bien rejetée, et renvoie le message d'erreur. */
 async function rejects(fn) {
   try {
@@ -484,9 +496,30 @@ describe('RLS narrative vue depuis un client mobile', () => {
     );
   });
 
-  test('les beats sont lisibles publiquement', async () => {
+  test('un beat non débloqué est invisible', async () => {
+    // `moi` n'a aucun déblocage à ce stade : le contenu narratif ne doit pas
+    // pouvoir être lu d'avance, sinon l'histoire est perdue avant d'être jouée.
     const { rows } = await asUser(moi, `select id from public.narrative_beats`);
-    assert.ok(rows.length > 0);
+    assert.equal(rows.length, 0);
+  });
+
+  test('un beat débloqué par autrui reste invisible', async () => {
+    // Le déblocage est nominatif : celui d'un autre joueur n'ouvre rien.
+    const { rows } = await asUser(
+      moi,
+      `select id from public.narrative_beats where id = '${beatId}'`,
+    );
+    assert.equal(rows.length, 0);
+  });
+
+  test('un beat débloqué est lisible par son propriétaire', async () => {
+    const { rows } = await asUser(autrui, `select id from public.narrative_beats`);
+    assert.deepEqual(rows, [{ id: beatId }]);
+  });
+
+  test('un visiteur sans session ne lit aucun beat', async () => {
+    const { rows } = await asAnon(`select id from public.narrative_beats`);
+    assert.equal(rows.length, 0);
   });
 
   test('les déblocages d’autrui sont invisibles', async () => {
