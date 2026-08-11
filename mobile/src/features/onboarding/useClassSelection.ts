@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { apiRequest, ApiError } from '../../lib/api';
 import type { Database } from '../../lib/database.types';
 import { supabase } from '../../lib/supabase';
 import { useUserStore } from '../../store/userStore';
@@ -74,6 +75,28 @@ export function useClassSelection() {
     // Le profil porte désormais une classe : le RootNavigator quitte
     // l'onboarding de lui-même.
     setProfile(data);
+
+    // Le premier fragment narratif doit être disponible dès maintenant, pas à la
+    // première séance loggée : sans cet appel, un joueur qui finit l'onboarding
+    // et ouvre le codex le trouverait vide.
+    //
+    // Ce n'est PAS le choix de classe qui débloque quoi que ce soit — la classe
+    // n'entre pas dans le calcul de déblocage. C'est simplement le moment du
+    // parcours où le compte devient utilisable.
+    //
+    // Lancé après la bascule et sans être attendu : le retenir devant un écran
+    // d'onboarding qu'il vient de terminer, sans même un indicateur puisque le
+    // bouton n'est plus en cours de soumission, serait un aller-retour réseau
+    // payé en attente visible. Un échec est sans conséquence, `GET /narrative`
+    // resynchronise à la première ouverture du codex.
+    void apiRequest('/narrative/sync', { method: 'POST' }).catch(
+      (cause: unknown) => {
+        console.warn(
+          '[onboarding] synchronisation narrative impossible :',
+          cause instanceof ApiError ? cause.message : cause,
+        );
+      },
+    );
   }, [profileId, selectedId, setProfile]);
 
   return {
