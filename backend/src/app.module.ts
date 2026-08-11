@@ -6,6 +6,7 @@ import { validateEnv } from './config/env.config';
 import { HealthModule } from './health/health.module';
 import { EntitlementsModule } from './modules/entitlements/entitlements.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
+import { NarrativeModule } from './modules/narrative/narrative.module';
 import { UsersModule } from './modules/users/users.module';
 import { WorkoutsModule } from './modules/workouts/workouts.module';
 import { SupabaseModule } from './supabase/supabase.module';
@@ -33,6 +34,7 @@ import { SupabaseModule } from './supabase/supabase.module';
     UsersModule,
     WorkoutsModule,
     GamificationModule,
+    NarrativeModule,
     EntitlementsModule,
   ],
 })
