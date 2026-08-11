@@ -190,7 +190,8 @@ function WorkoutSummary({
   result: WorkoutResult;
   onDismiss: () => void;
 }) {
-  const { xpAwarded, breakdown, leveledUp, levelAfter, cappedReason } = result;
+  const { xpAwarded, breakdown, leveledUp, levelAfter, cappedReason, unlockedBeats } =
+    result;
 
   return (
     <View style={styles.centered}>
@@ -218,6 +219,17 @@ function WorkoutSummary({
           ) : null}
         </>
       )}
+
+      {/* Annoncé, pas raconté : le texte se lit dans le codex, seul endroit qui
+          date la première consultation. Une séance plafonnée peut quand même
+          ouvrir un fragment — le déblocage compte les séances, pas l'XP. */}
+      {unlockedBeats > 0 ? (
+        <Text style={styles.summaryDetail}>
+          {unlockedBeats > 1
+            ? `${unlockedBeats} nouveaux fragments t’attendent dans le codex.`
+            : 'Un nouveau fragment t’attend dans le codex.'}
+        </Text>
+      ) : null}
 
       <Pressable onPress={onDismiss} accessibilityRole="button" style={styles.button}>
         <Text style={styles.buttonLabel}>Nouvelle séance</Text>

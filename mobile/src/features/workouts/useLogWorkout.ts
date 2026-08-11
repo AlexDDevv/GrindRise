@@ -26,9 +26,23 @@ type WorkoutCreated = {
     leveledUp: boolean;
     cappedReason: 'daily_limit' | 'too_close' | null;
   };
+  /** Fragments que la séance vient d'ouvrir. Vide si rien n'a été franchi. */
+  narrative: {
+    unlocked: Database['public']['Tables']['narrative_beats']['Row'][];
+  };
 };
 
-export type WorkoutResult = WorkoutCreated['award'];
+/**
+ * Ce que l'écran de confirmation a besoin de savoir.
+ *
+ * Le compte de fragments plutôt que les fragments : l'écran annonce, il ne
+ * raconte pas. La présentation du texte appartient au codex, qui sait la dater
+ * (`read_at`) — la dupliquer ici ferait deux chemins de lecture pour un seul
+ * fragment, dont un qui ne le marquerait pas comme lu.
+ */
+export type WorkoutResult = WorkoutCreated['award'] & {
+  unlockedBeats: number;
+};
 
 /**
  * Enregistre une séance via l'API.
@@ -116,7 +130,10 @@ export function useLogWorkout() {
       // La progression renvoyée fait autorité : elle sort de la transaction qui
       // vient d'écrire l'XP, alors que le store porte l'état d'avant.
       applyProgress(created.progress);
-      setResult(created.award);
+      setResult({
+        ...created.award,
+        unlockedBeats: created.narrative.unlocked.length,
+      });
     } catch (error) {
       const message =
         error instanceof ApiError
