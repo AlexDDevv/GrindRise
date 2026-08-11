@@ -47,5 +47,43 @@ export async function loadUserContext(
   }
 
   const { user_progress: progress, ...profile } = data;
-  return { profile, progress };
+
+  return { profile: await syncTimeZone(profile), progress };
+}
+
+/**
+ * Aligne `profiles.timezone` sur le fuseau du téléphone.
+ *
+ * C'est ce fuseau qui découpe les séances en jours locaux côté serveur : sans
+ * lui, le streak casserait à minuit UTC, soit 2 h du matin en France. Il vit
+ * sur le profil et non dans chaque requête parce que le serveur recalcule le
+ * streak sur tout l'historique, y compris quand l'app n'est pas là pour dire
+ * où se trouve son porteur.
+ *
+ * L'écriture est silencieuse en cas d'échec : un fuseau non synchronisé décale
+ * un découpage de quelques heures, ce n'est pas une raison de refuser
+ * l'ouverture de l'app. La valeur par défaut de la colonne reste correcte pour
+ * la majorité des utilisateurs.
+ */
+async function syncTimeZone(profile: Profile): Promise<Profile> {
+  const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  if (!deviceTimeZone || deviceTimeZone === profile.timezone) {
+    return profile;
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ timezone: deviceTimeZone })
+    .eq('id', profile.id)
+    // Exiger la ligne en retour : un UPDATE filtré par la RLS réussit à vide.
+    .select()
+    .single();
+
+  if (error) {
+    console.warn('[auth] fuseau non synchronisé :', error.message);
+    return profile;
+  }
+
+  return data;
 }
