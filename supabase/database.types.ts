@@ -132,18 +132,21 @@ export type Database = {
           class_id: string | null
           created_at: string
           id: string
+          timezone: string
           username: string | null
         }
         Insert: {
           class_id?: string | null
           created_at?: string
           id: string
+          timezone?: string
           username?: string | null
         }
         Update: {
           class_id?: string | null
           created_at?: string
           id?: string
+          timezone?: string
           username?: string | null
         }
         Relationships: [
@@ -180,6 +183,7 @@ export type Database = {
       user_progress: {
         Row: {
           current_xp: number
+          last_workout_on: string | null
           level: number
           profile_id: string
           streak_days: number
@@ -187,6 +191,7 @@ export type Database = {
         }
         Insert: {
           current_xp?: number
+          last_workout_on?: string | null
           level?: number
           profile_id: string
           streak_days?: number
@@ -194,6 +199,7 @@ export type Database = {
         }
         Update: {
           current_xp?: number
+          last_workout_on?: string | null
           level?: number
           profile_id?: string
           streak_days?: number

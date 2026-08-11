@@ -134,6 +134,47 @@ describe('création de compte', () => {
   });
 });
 
+describe('fuseau horaire du profil', () => {
+  test('un nouveau profil part sur le fuseau par défaut', async () => {
+    const userId = await createUser('fuseau@grindrise.test');
+    const { rows } = await db.query(`select timezone from public.profiles where id = $1`, [
+      userId,
+    ]);
+    assert.equal(rows[0].timezone, 'Europe/Paris');
+  });
+
+  test('un fuseau inconnu est rejeté par la base', async () => {
+    // La colonne est écrite par le client (policy profiles_update_own) et
+    // pilote le découpage en jours : une valeur farfelue ne doit pas attendre
+    // le calcul serveur pour être découverte.
+    const userId = await createUser('mauvais-fuseau@grindrise.test');
+    const message = await rejects(() =>
+      db.query(`update public.profiles set timezone = 'Mars/Olympus' where id = $1`, [userId]),
+    );
+    assert.match(message, /Mars\/Olympus|time zone/i);
+  });
+
+  test('un fuseau IANA valide est accepté', async () => {
+    const userId = await createUser('bon-fuseau@grindrise.test');
+    await db.query(`update public.profiles set timezone = 'Pacific/Auckland' where id = $1`, [
+      userId,
+    ]);
+    const { rows } = await db.query(`select timezone from public.profiles where id = $1`, [
+      userId,
+    ]);
+    assert.equal(rows[0].timezone, 'Pacific/Auckland');
+  });
+
+  test('la progression démarre sans dernier jour de séance', async () => {
+    const userId = await createUser('sans-seance@grindrise.test');
+    const { rows } = await db.query(
+      `select streak_days, last_workout_on from public.user_progress where profile_id = $1`,
+      [userId],
+    );
+    assert.deepEqual(rows[0], { streak_days: 0, last_workout_on: null });
+  });
+});
+
 describe('xp_events est append-only', () => {
   let userId;
   let workoutId;
