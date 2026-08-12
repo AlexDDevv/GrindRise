@@ -31,6 +31,12 @@ export const isSupabaseConfigured = supabaseUrl !== '' && supabaseAnonKey !== ''
  */
 export const isApiConfigured = apiUrl !== '';
 
+/**
+ * Ouvre le banc d'essai du thème à la place de l'app. Sert à relire les cinq
+ * composants prioritaires sans traverser l'authentification ni l'onboarding.
+ */
+export const isThemeGalleryEnabled = process.env.EXPO_PUBLIC_THEME_GALLERY === '1';
+
 if (!isSupabaseConfigured) {
   console.warn(
     '[env] EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY absents. ' +

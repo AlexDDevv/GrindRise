@@ -3,7 +3,9 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ThemeGalleryScreen } from './src/dev/ThemeGalleryScreen';
 import { useAuthBootstrap } from './src/features/auth/useAuthBootstrap';
+import { isThemeGalleryEnabled } from './src/lib/env';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { useUserStore } from './src/store/userStore';
 import { colors, useAppFonts } from './src/theme';
@@ -17,6 +19,15 @@ export default function App() {
   // que Grenze soit là ferait sauter la typographie sous les yeux.
   if (!fontsReady) {
     return null;
+  }
+
+  if (isThemeGalleryEnabled) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <ThemeGalleryScreen />
+      </SafeAreaProvider>
+    );
   }
 
   return (
