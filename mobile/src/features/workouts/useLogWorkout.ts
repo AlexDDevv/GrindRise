@@ -2,18 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { apiRequest, ApiError } from '../../lib/api';
 import type { Database } from '../../lib/database.types';
-import { supabase } from '../../lib/supabase';
 import { useUserStore, type Profile, type Progress } from '../../store/userStore';
+import type { NarrativeBeat } from '../narrative/narrativeState';
+import { useOnboardingStore } from '../onboarding/onboardingStore';
+import { useSports } from '../sports/useSports';
 import {
   metricFieldsFor,
   missingRequiredFields,
   parseMetrics,
 } from './sportMetrics';
 
-export type Sport = Database['public']['Tables']['sports']['Row'];
 export type WorkoutLog = Database['public']['Tables']['workout_logs']['Row'];
 
-/** Ce que `POST /workouts` renvoie — même forme que `GET /users/me`, plus le gain. */
+/** Ce que `POST /workouts` renvoie — la forme de `GET /users/me`, plus le gain. */
 type WorkoutCreated = {
   profile: Profile;
   progress: Progress;
@@ -26,22 +27,24 @@ type WorkoutCreated = {
     leveledUp: boolean;
     cappedReason: 'daily_limit' | 'too_close' | null;
   };
-  /** Fragments que la séance vient d'ouvrir. Vide si rien n'a été franchi. */
-  narrative: {
-    unlocked: Database['public']['Tables']['narrative_beats']['Row'][];
-  };
+  /**
+   * Fragments que la séance vient d'ouvrir. Vide si rien n'a été franchi — mais
+   * aussi si la synchronisation a échoué côté serveur, où elle est best-effort.
+   * L'absence n'est donc pas une preuve, seulement une occasion manquée.
+   */
+  narrative: { unlocked: NarrativeBeat[] };
 };
 
 /**
- * Ce que l'écran de confirmation a besoin de savoir.
+ * Ce que l'écran affiche après une séance enregistrée.
  *
- * Le compte de fragments plutôt que les fragments : l'écran annonce, il ne
- * raconte pas. La présentation du texte appartient au codex, qui sait la dater
- * (`read_at`) — la dupliquer ici ferait deux chemins de lecture pour un seul
- * fragment, dont un qui ne le marquerait pas comme lu.
+ * Les beats sont gardés entiers et non comptés : la modale les annonce par leur
+ * titre. Leur texte, en revanche, n'est pas montré ici — sa lecture appartient
+ * au codex, seul endroit qui la date (`read_at`). Un fragment lu hors de lui se
+ * représenterait à la prochaine ouverture.
  */
 export type WorkoutResult = WorkoutCreated['award'] & {
-  unlockedBeats: number;
+  unlocked: NarrativeBeat[];
 };
 
 /**
@@ -53,9 +56,13 @@ export type WorkoutResult = WorkoutCreated['award'] & {
  */
 export function useLogWorkout() {
   const applyProgress = useUserStore((s) => s.setProgress);
+  const { sports, error: loadError, reload: reloadSports } = useSports();
 
-  const [sports, setSports] = useState<Sport[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  // Le sport choisi à l'onboarding présélectionne le formulaire : c'est celui
+  // que le joueur logge le plus souvent, donc l'ouvrir sur un autre lui ferait
+  // corriger la sélection à chaque séance.
+  const preferredSportId = useOnboardingStore((s) => s.sportId);
+
   const [sportId, setSportId] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,25 +71,14 @@ export function useLogWorkout() {
 
   const fields = useMemo(() => metricFieldsFor(sportId), [sportId]);
 
-  const loadSports = useCallback(async () => {
-    setLoadError(null);
-
-    // Lecture publique (`sports_select_public`) : pas besoin de l'API pour ça.
-    const { data, error } = await supabase.from('sports').select('*').order('name');
-
-    if (error) {
-      console.warn('[workouts] lecture des sports impossible :', error.message);
-      setLoadError('Impossible de charger les sports. Vérifie ta connexion.');
-      return;
-    }
-
-    setSports(data);
-    setSportId((current) => current ?? data[0]?.id ?? null);
-  }, []);
-
+  // La présélection attend le catalogue : un sport absent de `sports` ferait
+  // échouer l'insertion sur la clé étrangère.
   useEffect(() => {
-    void loadSports();
-  }, [loadSports]);
+    if (sportId !== null || !sports?.length) return;
+
+    const preferred = sports.find((sport) => sport.id === preferredSportId);
+    setSportId(preferred?.id ?? sports[0].id);
+  }, [preferredSportId, sportId, sports]);
 
   const selectSport = useCallback((next: string) => {
     setSportId(next);
@@ -130,10 +126,7 @@ export function useLogWorkout() {
       // La progression renvoyée fait autorité : elle sort de la transaction qui
       // vient d'écrire l'XP, alors que le store porte l'état d'avant.
       applyProgress(created.progress);
-      setResult({
-        ...created.award,
-        unlockedBeats: created.narrative.unlocked.length,
-      });
+      setResult({ ...created.award, unlocked: created.narrative.unlocked });
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -157,7 +150,7 @@ export function useLogWorkout() {
   return {
     sports,
     loadError,
-    reloadSports: loadSports,
+    reloadSports,
     sportId,
     selectSport,
     fields,
