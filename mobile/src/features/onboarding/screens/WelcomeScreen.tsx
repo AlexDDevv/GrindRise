@@ -43,11 +43,22 @@ export function WelcomeScreen() {
       title="Grindrise"
       intro="Un carnet d’entraînement qui compte les paliers plutôt que les calories."
       footer={
-        <Button
-          label="Commencer"
-          size="hero"
-          onPress={() => navigation.navigate('SportSelection')}
-        />
+        <>
+          <Button
+            label="Commencer"
+            size="hero"
+            onPress={() => navigation.navigate('SportSelection')}
+          />
+
+          {/* Raccourci vers la dernière étape. Sans lui, un joueur qui se
+              reconnecte traverserait deux écrans de choix pour des décisions
+              déjà prises — et son compte porte déjà sa classe. */}
+          <Button
+            label="J’ai déjà un compte"
+            variant="tertiary"
+            onPress={() => navigation.navigate('Auth')}
+          />
+        </>
       }
     >
       <View style={styles.emblem}>

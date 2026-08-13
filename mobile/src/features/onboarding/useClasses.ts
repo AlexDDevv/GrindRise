@@ -20,11 +20,7 @@ export type GameClass = Database['public']['Tables']['classes']['Row'];
  *   dédiée en base suffise, sans toucher au mobile.
  */
 export function useClasses(sportId: string | null) {
-  const { rows, error, reload } = useReferenceData<GameClass>(
-    'classes',
-    () => supabase.from('classes').select('*').order('name'),
-    'Impossible de charger les classes. Vérifie ta connexion.',
-  );
+  const { rows, error, reload } = useAllClasses();
 
   const classes = useMemo(
     () =>
@@ -35,4 +31,30 @@ export function useClasses(sportId: string | null) {
   );
 
   return { classes, error, reload };
+}
+
+/**
+ * La classe d'un joueur, d'après `profiles.class_id`.
+ *
+ * Le filtre par sport n'a pas de sens ici : la classe est déjà choisie, il ne
+ * s'agit plus de savoir laquelle est proposable. Passer par le même cache évite
+ * une requête au profil alors que le catalogue est déjà en mémoire.
+ *
+ * @returns `null` tant que le catalogue n'est pas là, ou si la classe n'existe
+ *   plus en base — `profiles.class_id` est `on delete set null`, donc ce cas ne
+ *   devrait pas se produire, mais un profil sans classe reste affichable.
+ */
+export function useGameClass(classId: string | null): GameClass | null {
+  const { rows } = useAllClasses();
+
+  return rows?.find((gameClass) => gameClass.id === classId) ?? null;
+}
+
+/** Le catalogue complet, mis en cache une fois pour les deux usages. */
+function useAllClasses() {
+  return useReferenceData<GameClass>(
+    'classes',
+    () => supabase.from('classes').select('*').order('name'),
+    'Impossible de charger les classes. Vérifie ta connexion.',
+  );
 }

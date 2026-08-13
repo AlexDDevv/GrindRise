@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { DashboardScreen } from '../features/dashboard/screens/DashboardScreen';
-import { ProgressionScreen } from '../features/progression/screens/ProgressionScreen';
+import { ProfileScreen } from '../features/profile/screens/ProfileScreen';
 import { LogWorkoutScreen } from '../features/workouts/screens/LogWorkoutScreen';
 import { border, colors, fontFamily, typography } from '../theme';
 import type { MainTabParamList } from './types';
@@ -62,7 +62,7 @@ export function MainTabs() {
       />
       <Tab.Screen
         name="Profile"
-        component={ProgressionScreen}
+        component={ProfileScreen}
         options={{
           title: 'PROFIL',
           tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
