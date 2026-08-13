@@ -1,18 +1,31 @@
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { StyleSheet, View } from 'react-native';
 
+import { ErrorNotice } from '../../../components/Feedback';
+import { Screen } from '../../../components/Screen';
+import { TextField } from '../../../components/TextField';
+import { Button } from '../../../components/ui';
 import { isSupabaseConfigured } from '../../../lib/env';
+import type { OnboardingStackParamList } from '../../../navigation/types';
+import { spacing } from '../../../theme';
 import { OTP_LENGTH, useEmailOtpSignIn } from '../useEmailOtpSignIn';
 
+/**
+ * Dernière étape de l'onboarding : ouvrir le compte.
+ *
+ * Elle vient après les choix et non avant, ce qui est le but du parcours — on ne
+ * demande une adresse email qu'à quelqu'un qui a déjà décidé de jouer. La
+ * conséquence technique est que la classe choisie attend dans le brouillon
+ * pendant tout cet écran, et que `FinalizeScreen` prend la suite.
+ *
+ * Un seul écran pour deux étapes (adresse, puis code) : revenir en arrière doit
+ * rejouer la saisie de l'adresse, pas restaurer une navigation.
+ */
 export function SignInScreen() {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<OnboardingStackParamList, 'Auth'>>();
+
   const {
     step,
     email,
@@ -28,36 +41,83 @@ export function SignInScreen() {
 
   if (!isSupabaseConfigured) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Configuration manquante</Text>
-        <Text style={styles.help}>
-          Renseigne EXPO_PUBLIC_SUPABASE_URL et EXPO_PUBLIC_SUPABASE_ANON_KEY dans
-          mobile/.env, puis relance avec `expo start -c` pour vider le cache Metro.
-        </Text>
-      </View>
+      <Screen
+        title="Configuration manquante"
+        intro="Renseigne EXPO_PUBLIC_SUPABASE_URL et EXPO_PUBLIC_SUPABASE_ANON_KEY dans mobile/.env, puis relance avec `expo start -c` pour vider le cache Metro."
+      />
     );
   }
 
   const isEmailStep = step === 'email';
 
+  const submit = async () => {
+    if (isEmailStep) {
+      await requestCode();
+      return;
+    }
+
+    // La session ouverte ne suffit pas à sortir de l'onboarding : la classe
+    // scellée n'est pas encore en base. C'est `FinalizeScreen` qui l'écrit, et
+    // lui seul décide quand la pile se démonte.
+    if (await verifyCode()) {
+      navigation.navigate('Finalize');
+    }
+  };
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <Text style={styles.title}>
-        {isEmailStep ? 'Entre dans l’arène' : 'Vérifie ta boîte mail'}
-      </Text>
-
-      <Text style={styles.help}>
-        {isEmailStep
+    <Screen
+      eyebrow={isEmailStep ? 'DERNIÈRE ÉTAPE' : `CODE À ${OTP_LENGTH} CHIFFRES`}
+      title={isEmailStep ? 'Entre dans l’arène' : 'Vérifie ta boîte mail'}
+      intro={
+        isEmailStep
           ? 'On t’envoie un code à usage unique. Pas de mot de passe à retenir.'
-          : `Code à ${OTP_LENGTH} chiffres envoyé à ${email}.`}
-      </Text>
+          : `Envoyé à ${email}. Il expire vite, garde-le sous les yeux.`
+      }
+      onBack={isEmailStep && navigation.canGoBack() ? navigation.goBack : undefined}
+      avoidKeyboard
+      footer={
+        <>
+          {error ? <ErrorNotice message={error} /> : null}
 
+          {/* Le bouton du DA n'a pas d'état de chargement : l'attente se dit
+              dans le libellé plutôt qu'en glissant un indicateur dans un
+              composant validé. */}
+          <Button
+            label={
+              isSubmitting
+                ? 'Un instant…'
+                : isEmailStep
+                  ? 'Recevoir un code'
+                  : 'Se connecter'
+            }
+            onPress={() => void submit()}
+            disabled={isSubmitting}
+          />
+
+          {isEmailStep ? null : (
+            <View style={styles.secondaryActions}>
+              <Button
+                label="Changer d’adresse"
+                onPress={editEmail}
+                variant="tertiary"
+                size="compact"
+                disabled={isSubmitting}
+              />
+              <Button
+                label="Renvoyer le code"
+                onPress={() => void requestCode()}
+                variant="tertiary"
+                size="compact"
+                disabled={isSubmitting}
+              />
+            </View>
+          )}
+        </>
+      }
+    >
       {isEmailStep ? (
-        <TextInput
-          style={styles.input}
+        <TextField
+          label="Adresse email"
           value={email}
           onChangeText={setEmail}
           placeholder="toi@exemple.fr"
@@ -69,12 +129,12 @@ export function SignInScreen() {
           textContentType="emailAddress"
           editable={!isSubmitting}
           returnKeyType="send"
-          onSubmitEditing={() => void requestCode()}
-          accessibilityLabel="Adresse email"
+          onSubmitEditing={() => void submit()}
         />
       ) : (
-        <TextInput
-          style={[styles.input, styles.codeInput]}
+        <TextField
+          label="Code reçu"
+          emphasis
           value={code}
           onChangeText={setCode}
           placeholder="000000"
@@ -86,112 +146,18 @@ export function SignInScreen() {
           autoComplete="one-time-code"
           editable={!isSubmitting}
           returnKeyType="go"
-          onSubmitEditing={() => void verifyCode()}
+          onSubmitEditing={() => void submit()}
           autoFocus
-          accessibilityLabel={`Code à ${OTP_LENGTH} chiffres`}
         />
       )}
-
-      {error ? (
-        <Text style={styles.error} accessibilityRole="alert">
-          {error}
-        </Text>
-      ) : null}
-
-      <Pressable
-        style={({ pressed }) => [
-          styles.button,
-          (pressed || isSubmitting) && styles.buttonPressed,
-        ]}
-        onPress={() => void (isEmailStep ? requestCode() : verifyCode())}
-        disabled={isSubmitting}
-        accessibilityRole="button"
-      >
-        {isSubmitting ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonLabel}>
-            {isEmailStep ? 'Recevoir un code' : 'Se connecter'}
-          </Text>
-        )}
-      </Pressable>
-
-      {!isEmailStep ? (
-        <View style={styles.secondaryActions}>
-          <Pressable onPress={editEmail} disabled={isSubmitting} accessibilityRole="button">
-            <Text style={styles.link}>Changer d’adresse</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => void requestCode()}
-            disabled={isSubmitting}
-            accessibilityRole="button"
-          >
-            <Text style={styles.link}>Renvoyer le code</Text>
-          </Pressable>
-        </View>
-      ) : null}
-    </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 12,
-    padding: 24,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  help: {
-    fontSize: 15,
-    color: '#666',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d0d0d0',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  codeInput: {
-    fontSize: 24,
-    letterSpacing: 8,
-    textAlign: 'center',
-  },
-  error: {
-    color: '#b3261e',
-    fontSize: 14,
-  },
-  button: {
-    backgroundColor: '#1c1c1e',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 50,
-  },
-  buttonPressed: {
-    opacity: 0.7,
-  },
-  buttonLabel: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   secondaryActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  link: {
-    color: '#1c1c1e',
-    fontSize: 14,
-    textDecorationLine: 'underline',
+    gap: spacing.row,
   },
 });

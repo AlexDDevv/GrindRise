@@ -1,32 +1,35 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
-/** Pile affichée tant que l'utilisateur n'est pas connecté. */
-export type AuthStackParamList = {
-  SignIn: undefined;
-};
-
-/** Pile d'onboarding : choix de classe après la première connexion. */
+/**
+ * Pile d'onboarding, affichée tant que le joueur n'a pas de profil jouable.
+ *
+ * L'authentification en est une étape et non une pile séparée : le parcours
+ * demande une adresse email en dernier, après les choix. Une pile d'auth
+ * distincte obligerait à sortir de l'onboarding pour y revenir, en perdant la
+ * position dans le parcours.
+ */
 export type OnboardingStackParamList = {
+  Welcome: undefined;
+  SportSelection: undefined;
   ClassSelection: undefined;
+  Auth: undefined;
+  /** Écriture de la classe scellée, une fois la session ouverte. */
+  Finalize: undefined;
 };
 
-/** Pile interne à l'onglet « Entraînement ». */
-export type WorkoutsStackParamList = {
-  WorkoutsHome: undefined;
-  LogWorkout: { sportId?: string } | undefined;
-};
-
-/** Onglets principaux de l'app. */
+/**
+ * Onglets principaux.
+ *
+ * Le codex n'y figure pas encore : il viendra dans une étape séparée.
+ */
 export type MainTabParamList = {
-  Home: undefined;
-  Workouts: NavigatorScreenParams<WorkoutsStackParamList> | undefined;
-  Progression: undefined;
-  Codex: undefined;
+  Dashboard: undefined;
+  Log: undefined;
+  Profile: undefined;
 };
 
-/** Pile racine : bascule entre auth / onboarding / app selon l'état du store. */
+/** Pile racine : bascule entre onboarding et app selon l'état du store. */
 export type RootStackParamList = {
-  Auth: NavigatorScreenParams<AuthStackParamList> | undefined;
   Onboarding: NavigatorScreenParams<OnboardingStackParamList> | undefined;
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
 };

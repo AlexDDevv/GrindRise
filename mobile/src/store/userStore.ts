@@ -70,5 +70,13 @@ export const useUserStore = create<UserState>((set) => ({
 /** L'utilisateur a une session valide. */
 export const useIsAuthenticated = () => useUserStore((s) => s.session !== null);
 
-/** L'onboarding est terminé quand une classe a été choisie. */
-export const useHasChosenClass = () => useUserStore((s) => s.profile?.class_id != null);
+/**
+ * Le compte est jouable : une session, et une classe scellée.
+ *
+ * C'est cette condition et non la seule session qui fait sortir de l'onboarding.
+ * Le trigger `handle_new_user` crée le profil dès l'inscription, donc « avoir un
+ * profil » ne veut rien dire ici — un compte sans `class_id` est un onboarding
+ * interrompu, pas un joueur.
+ */
+export const useIsOnboarded = () =>
+  useUserStore((s) => s.session !== null && s.profile?.class_id != null);

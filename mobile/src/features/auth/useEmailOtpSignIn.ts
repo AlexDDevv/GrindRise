@@ -24,9 +24,9 @@ export const OTP_LENGTH = 6;
  * à la première demande de code, et le trigger sur `auth.users` pose le profil
  * et la progression dans la foulée.
  *
- * La réussite de `verifyCode` ne navigue pas : elle ouvre une session, que
- * `useAuthBootstrap` observe via `onAuthStateChange`. C'est le store qui fait
- * basculer le `RootNavigator`.
+ * `verifyCode` ne navigue pas elle-même, elle rend sa réussite : la session
+ * ouverte est observée par `useAuthBootstrap`, mais l'onboarding a encore une
+ * étape après — écrire la classe choisie. C'est l'appelant qui sait où aller.
  */
 export function useEmailOtpSignIn() {
   const [step, setStep] = useState<SignInStep>('email');
@@ -68,12 +68,13 @@ export function useEmailOtpSignIn() {
     setStep('code');
   }, [email]);
 
-  const verifyCode = useCallback(async () => {
+  /** @returns vrai si la session est ouverte. */
+  const verifyCode = useCallback(async (): Promise<boolean> => {
     const normalizedCode = code.trim();
 
     if (normalizedCode.length !== OTP_LENGTH) {
       setError(`Le code compte ${OTP_LENGTH} chiffres.`);
-      return;
+      return false;
     }
 
     setIsSubmitting(true);
@@ -89,10 +90,10 @@ export function useEmailOtpSignIn() {
 
     if (verifyError) {
       setError(translateAuthError(verifyError.message, 'verify'));
-      return;
+      return false;
     }
 
-    // Aucune navigation ici : la session ouverte déclenche onAuthStateChange.
+    return true;
   }, [code, email]);
 
   const editEmail = useCallback(() => {
