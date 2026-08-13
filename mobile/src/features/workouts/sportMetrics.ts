@@ -18,6 +18,11 @@ export type MetricField = {
   label: string;
   /** Suffixe affiché dans le champ (kg, km…). */
   unit?: string;
+  /**
+   * Mot accolé à la valeur dans un résumé de séance : « 4 séries », « 80 kg ».
+   * Inutile quand `unit` suffit — c'est alors elle qui sert.
+   */
+  short?: string;
   /** Le serveur refuse la séance si ce champ est vide. */
   required: boolean;
   /** Les entiers n'acceptent pas de décimale (séries, répétitions). */
@@ -28,8 +33,8 @@ export type MetricField = {
 /** Sports sans définition : présence seule, aucun champ. */
 export const SPORT_METRIC_FIELDS: Record<string, MetricField[]> = {
   musculation: [
-    { key: 'sets', label: 'Séries', required: true, integer: true, placeholder: '4' },
-    { key: 'reps', label: 'Répétitions', required: true, integer: true, placeholder: '10' },
+    { key: 'sets', label: 'Séries', short: 'séries', required: true, integer: true, placeholder: '4' },
+    { key: 'reps', label: 'Répétitions', short: 'rép.', required: true, integer: true, placeholder: '10' },
     { key: 'weightKg', label: 'Charge', unit: 'kg', required: true, placeholder: '80' },
   ],
   course: [

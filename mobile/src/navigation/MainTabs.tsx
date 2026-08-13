@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
-import { HomeScreen } from '../features/home/screens/HomeScreen';
+import { DashboardScreen } from '../features/dashboard/screens/DashboardScreen';
 import { ProgressionScreen } from '../features/progression/screens/ProgressionScreen';
 import { LogWorkoutScreen } from '../features/workouts/screens/LogWorkoutScreen';
 import { border, colors, fontFamily, typography } from '../theme';
@@ -46,7 +46,7 @@ export function MainTabs() {
     >
       <Tab.Screen
         name="Dashboard"
-        component={HomeScreen}
+        component={DashboardScreen}
         options={{
           title: 'ACCUEIL',
           tabBarIcon: ({ color, size }) => <Ionicons name="flame" color={color} size={size} />,
