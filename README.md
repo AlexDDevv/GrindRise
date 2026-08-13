@@ -114,11 +114,21 @@ mobile : seule la clé `anon` y a sa place (elle est protégée par la RLS).
 Le flux vertical de l'XP fonctionne : logger une séance depuis le mobile fait
 monter le niveau, et il n'existe aucun autre moyen d'en gagner.
 
-- **Base** : 8 tables, RLS deny-by-default, données de référence seedées.
-- **Backend** : authentification par JWT, `GET /users/me`, `POST /workouts`.
-- **Mobile** : connexion OTP, choix de classe, enregistrement d'une séance.
+- **Base** : 10 tables, RLS deny-by-default, données de référence seedées.
+- **Backend** : authentification par JWT, `GET /users/me`, `POST /workouts`,
+  déblocage narratif (`/narrative`).
+- **Mobile** : onboarding complet (bienvenue, sport, classe, connexion OTP),
+  accueil branché sur la progression, enregistrement d'une séance avec annonce
+  du palier franchi et des fragments ouverts, profil en lecture seule. Trois
+  onglets : Accueil, Séance, Profil.
 
-Reste en placeholder : l'accueil, la progression et l'historique (phase 3).
+L'habillage suit le thème « Braise & parchemin » (`mobile/src/theme/`) : aucune
+couleur, taille ni marge en dur ailleurs dans l'app.
+
+Reste à faire côté mobile : le codex dans la barre d'onglets, l'historique
+filtrable, les analytics de progression, la saisie du pseudo. Et le contenu
+narratif lui-même : `narrative_beats` est vide, donc le déblocage fonctionne mais
+n'a encore rien à ouvrir.
 
 ### Comment l'XP est attribuée
 

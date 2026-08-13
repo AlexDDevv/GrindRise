@@ -1,6 +1,7 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { colors, spacing, typography } from '../theme';
+import { Screen } from './Screen';
 import { Button } from './ui';
 
 /**
@@ -33,6 +34,23 @@ export function ErrorNotice({
         <Button label={retryLabel} onPress={onRetry} variant="secondary" size="compact" />
       ) : null}
     </View>
+  );
+}
+
+/**
+ * Écran de configuration absente.
+ *
+ * Il remplace le premier écran plutôt que d'attendre la première requête : sans
+ * `.env`, l'app se lance mais aucune table n'est lisible, et « Impossible de
+ * charger les sports » enverrait chercher une panne de réseau là où il manque
+ * deux variables. Le vrai symptôme est dit là où il est le plus tôt visible.
+ */
+export function MissingSupabaseConfig() {
+  return (
+    <Screen
+      title="Configuration manquante"
+      intro="Renseigne EXPO_PUBLIC_SUPABASE_URL et EXPO_PUBLIC_SUPABASE_ANON_KEY dans mobile/.env, puis relance avec `expo start -c` pour vider le cache Metro."
+    />
   );
 }
 

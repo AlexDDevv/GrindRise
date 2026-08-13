@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StyleSheet, View } from 'react-native';
 
-import { ErrorNotice } from '../../../components/Feedback';
+import { ErrorNotice, MissingSupabaseConfig } from '../../../components/Feedback';
 import { Screen } from '../../../components/Screen';
 import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/ui';
@@ -39,13 +39,10 @@ export function SignInScreen() {
     editEmail,
   } = useEmailOtpSignIn();
 
+  // Atteignable sans passer par la bienvenue, qui porte la même garde : le
+  // raccourci « j'ai déjà un compte » y mène directement.
   if (!isSupabaseConfigured) {
-    return (
-      <Screen
-        title="Configuration manquante"
-        intro="Renseigne EXPO_PUBLIC_SUPABASE_URL et EXPO_PUBLIC_SUPABASE_ANON_KEY dans mobile/.env, puis relance avec `expo start -c` pour vider le cache Metro."
-      />
-    );
+    return <MissingSupabaseConfig />;
   }
 
   const isEmailStep = step === 'email';

@@ -2,8 +2,10 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { MissingSupabaseConfig } from '../../../components/Feedback';
 import { Screen } from '../../../components/Screen';
 import { Button, LevelMedallion } from '../../../components/ui';
+import { isSupabaseConfigured } from '../../../lib/env';
 import type { OnboardingStackParamList } from '../../../navigation/types';
 import { border, colors, gap, padding, spacing, typography } from '../../../theme';
 
@@ -36,6 +38,13 @@ const PROMISES = [
 export function WelcomeScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<OnboardingStackParamList, 'Welcome'>>();
+
+  // Le dire ici et pas à la première requête : cet écran est le seul qui
+  // s'affiche sans réseau, donc le premier endroit où le vrai symptôme est
+  // visible.
+  if (!isSupabaseConfigured) {
+    return <MissingSupabaseConfig />;
+  }
 
   return (
     <Screen
