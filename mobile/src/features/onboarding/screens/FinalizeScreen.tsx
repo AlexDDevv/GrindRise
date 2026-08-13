@@ -81,7 +81,12 @@ export function FinalizeScreen() {
     void (async () => {
       try {
         await completeOnboarding(profileId, classId);
-        if (isMounted) clearClassDraft();
+
+        // Hors garde de montage, contrairement à `setError` : écrire la classe
+        // fait basculer le `RootNavigator`, donc démonte cet écran avant que la
+        // promesse ne rende la main. Un `isMounted` ici laisserait le brouillon
+        // en place précisément dans le cas où tout a marché.
+        clearClassDraft();
       } catch (cause) {
         if (isMounted) {
           setError(

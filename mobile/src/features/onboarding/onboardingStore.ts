@@ -38,6 +38,16 @@ type OnboardingState = {
   setHydrated: () => void;
 };
 
+/**
+ * Nul si `AsyncStorage` n'est pas là — `createJSONStorage` avale alors
+ * l'exception et rend `undefined`. Le cas est capturé plutôt qu'ignoré : sans
+ * stockage, `persist` ne tente aucune réhydratation, donc n'appelle jamais
+ * `onRehydrateStorage`, et l'app resterait sur son indicateur de démarrage
+ * indéfiniment. Un brouillon non persisté est un désagrément ; un écran de
+ * chargement sans fin est une app morte.
+ */
+const draftStorage = createJSONStorage(() => AsyncStorage);
+
 export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set) => ({
@@ -52,7 +62,7 @@ export const useOnboardingStore = create<OnboardingState>()(
     }),
     {
       name: 'grindrise.onboarding',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: draftStorage,
       // `isHydrated` décrit l'état du chargement, pas le choix du joueur : le
       // persister le rendrait vrai avant même sa relecture.
       partialize: ({ sportId, classId }) => ({ sportId, classId }),
@@ -64,6 +74,10 @@ export const useOnboardingStore = create<OnboardingState>()(
   ),
 );
 
-/** Le brouillon suffit à finaliser un compte sans repasser par les écrans. */
-export const useHasCompleteDraft = () =>
-  useOnboardingStore((s) => s.classId !== null);
+if (!draftStorage) {
+  console.warn(
+    '[onboarding] AsyncStorage indisponible : le brouillon ne survivra pas à un ' +
+      'redémarrage de l’app.',
+  );
+  useOnboardingStore.getState().setHydrated();
+}
