@@ -10,13 +10,14 @@ import { CutCornerSurface } from './CutCornerSurface';
  * qu'un filet, le tertiaire n'est qu'un mot. Le coin coupé est réservé au
  * primaire — c'est le DA qui le réserve aux boutons pleins.
  *
- * `size` ne change pas que la hauteur, il dit où le bouton se pose :
- * `compact` en ligne dans un écran, `ceremony` dans une modale où tout se
- * resserre et où le filet monte d'un cran pour tenir sur le fond dégradé.
+ * `size` ne change pas que la hauteur, il dit où le bouton se pose : `hero`
+ * pour l'action unique d'un écran, `full` pour une action ordinaire pleine
+ * largeur, `compact` en ligne dans un écran, `ceremony` dans une modale où tout
+ * se resserre et où le filet monte d'un cran pour tenir sur le fond dégradé.
  */
 
 type ButtonVariant = 'primary' | 'secondary' | 'tertiary';
-type ButtonSize = 'full' | 'compact' | 'ceremony';
+type ButtonSize = 'hero' | 'full' | 'compact' | 'ceremony';
 
 /** L'état d'interaction, transporté d'un bloc à l'autre plutôt que recalculé. */
 type State = { pressed: boolean; disabled: boolean };
@@ -95,6 +96,10 @@ export function Button({
 function heightFor(variant: ButtonVariant, size: ButtonSize): number {
   if (variant === 'tertiary' || size === 'compact') return touchTarget.minimum;
   if (size === 'ceremony') return touchTarget.ceremony;
+  // Le cran `hero` du §05 est réservé à l'action unique d'un écran : le CTA du
+  // dashboard, celui qui clôt une séance. Il ne dépend pas de la variante, un
+  // écran n'ayant qu'un seul héros.
+  if (size === 'hero') return touchTarget.hero;
   return variant === 'primary' ? touchTarget.primary : touchTarget.secondary;
 }
 
