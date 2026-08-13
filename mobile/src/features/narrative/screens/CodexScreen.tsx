@@ -23,6 +23,12 @@ type Section = 'histoire' | 'voies';
 /**
  * Codex narratif : ce que le joueur a débloqué.
  *
+ * ⚠️ **Cet écran n'est plus monté.** Il a quitté la barre d'onglets avec la
+ * refonte de navigation et y reviendra à son étape (3.6 de la roadmap). Ce n'est
+ * pas un oubli : le reste de la feature (`useCodex`, `narrativeState`) est bien
+ * en service, les fragments débloqués étant annoncés après une séance. Ils ne
+ * peuvent simplement pas encore être lus, donc aucun ne passe en « lu ».
+ *
  * Deux sections, qui reprennent exactement les deux axes du plan :
  * « Histoire » pour la trame principale (pilotée par le niveau global), et
  * « Voies » pour les trames annexes (une par sport pratiqué, ouverte par les
