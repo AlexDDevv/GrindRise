@@ -37,30 +37,46 @@ export function readMetrics(
   metrics: unknown,
   limit = 3,
 ): WorkoutMetric[] {
+  return readFields(sportId, metrics)
+    .map(({ metric }) => metric)
+    .slice(0, limit);
+}
+
+/** Les métriques présentes, avec le champ qui les décrit. */
+function readFields(
+  sportId: string,
+  metrics: unknown,
+): { field: MetricField; metric: WorkoutMetric }[] {
   const raw = (metrics ?? {}) as RawMetrics;
 
-  return metricFieldsFor(sportId)
-    .flatMap((field) => {
-      const value = raw[field.key];
-      if (typeof value !== 'number' || !Number.isFinite(value)) return [];
+  return metricFieldsFor(sportId).flatMap((field) => {
+    const value = raw[field.key];
+    if (typeof value !== 'number' || !Number.isFinite(value)) return [];
 
-      return [
-        {
+    return [
+      {
+        field,
+        metric: {
           label: field.label,
           value: formatNumber(value),
           unit: suffixOf(field),
         },
-      ];
-    })
-    .slice(0, limit);
+      },
+    ];
+  });
 }
+
+/** Deux métriques au plus dans un résumé : la carte compacte tient sur une ligne. */
+const SUMMARY_METRICS = 2;
 
 /**
  * Résumé d'une ligne : « Hier · 4 séries · 80 kg ».
  *
  * Deux métriques au plus, comme dans le DA : la carte compacte les pose en
  * légende de 12 points, sur une seule ligne qui doit tenir à côté du gain d'XP.
- * Une séance sans métrique se réduit à son jour, ce qui est exactement ce
+ * Les champs marqués `highlight` passent devant, ce qui évite de résumer une
+ * séance de musculation par ses séries et ses répétitions en laissant tomber la
+ * charge. Une séance sans métrique se réduit à son jour, ce qui est exactement ce
  * qu'elle dit — la présence a suffi.
  */
 export function summarizeWorkout(
@@ -69,9 +85,18 @@ export function summarizeWorkout(
   performedAt: string,
   now?: Date,
 ): string {
-  const parts = readMetrics(sportId, metrics, 2).map((metric) =>
-    metric.unit ? `${metric.value} ${metric.unit}` : metric.value,
-  );
+  const present = readFields(sportId, metrics);
+
+  // L'ordre de la config est conservé à l'intérieur de chaque groupe : le tri ne
+  // fait que remonter les champs marqués, il ne réordonne pas le reste.
+  const ordered = [
+    ...present.filter(({ field }) => field.highlight),
+    ...present.filter(({ field }) => !field.highlight),
+  ];
+
+  const parts = ordered
+    .slice(0, SUMMARY_METRICS)
+    .map(({ metric }) => (metric.unit ? `${metric.value} ${metric.unit}` : metric.value));
 
   return [formatDayLabel(performedAt, now), ...parts].join(' · ');
 }
