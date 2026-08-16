@@ -8,7 +8,17 @@ export default tseslint.config(
   {
     // database.types.ts est généré par `pnpm db:types` : le corriger n'aurait
     // aucun effet, la prochaine régénération l'écraserait.
-    ignores: ['eslint.config.mjs', 'src/database.types.ts'],
+    //
+    // contract.ts est le fichier jumeau du contrat de queue, partagé à
+    // l'identique avec le dépôt grindrise-notifications
+    // (src/queue/contract.ts). Il ne doit jamais être reformaté ni corrigé
+    // ici : la copie source de ce dépôt fait foi, et toute modification
+    // locale casserait l'invariant octet pour octet entre les deux dépôts.
+    ignores: [
+      'eslint.config.mjs',
+      'src/database.types.ts',
+      'src/modules/notifications/contract.ts',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
