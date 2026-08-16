@@ -8,9 +8,13 @@ Application mobile de tracking sportif avec une couche de gamification RPG
 ```
 mobile/     App Expo (React Native + TypeScript), organisée par feature
 backend/    API NestJS (modular monolith), déployée en container sur CapRover
-  worker/   emplacement du futur worker de notifications (BullMQ) — vide
 supabase/   migrations SQL, seeds et tests de schéma
 ```
+
+Un troisième déployable vit **hors de ce dépôt** :
+[grindrise-notifications](https://github.com/AlexDDevv/grindrise-notifications),
+qui consomme une queue BullMQ et envoie les emails transactionnels. L'API n'y
+accède que par Redis, jamais en HTTP.
 
 Le gestionnaire de paquets est **pnpm** (épinglé par le champ `packageManager`
 de chaque `package.json`).
@@ -28,6 +32,9 @@ nécessaire.
 - **Mobile → API NestJS** (clé `service_role` côté serveur) : toute logique
   métier non triviale — calcul d'XP, règles de niveaux, contenu narratif
   conditionnel, entitlements.
+- **API NestJS → service de notifications** (queue Redis/BullMQ) : tout envoi
+  d'email. L'API dépose un job et n'attend aucune réponse — un envoi lent ou en
+  panne ne doit jamais peser sur une requête utilisateur.
 
 Règle centrale : **le client n'écrit jamais d'XP**. Il enregistre une séance,
 le serveur en déduit l'XP et écrit `xp_events`.

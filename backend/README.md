@@ -32,7 +32,7 @@ src/
     gamification/    XP, niveaux, anti-triche
     narrative/       trames, déblocage des beats, codex
     entitlements/    webhook RevenueCat, droits d'accès
-worker/        emplacement du futur worker de notifications (voir son README)
+    notifications/   producteur de jobs BullMQ — le traitement vit ailleurs
 ```
 
 Chaque module expose son service via `exports` ; aucun module n'importe les
@@ -136,6 +136,35 @@ tables de contenu : le client ne voit que les beats présents dans ses
 histoire non. L'API n'est pas concernée par cette policy — la clé
 `service_role` la contourne, et il faut bien lire un beat non débloqué pour
 décider de le débloquer.
+
+## Notifications
+
+L'API ne fait que **produire** des jobs. Le traitement — envoi des emails via
+Brevo — vit dans un service déployé séparément, dépôt
+[grindrise-notifications](https://github.com/AlexDDevv/grindrise-notifications).
+
+```
+API NestJS ──Queue.add──▶ Redis / BullMQ ──consume──▶ grindrise-notifications
+```
+
+Aucun appel HTTP entre les deux, dans aucun sens. `NotificationsService` résout
+l'adresse email (elle vit dans `auth.users`, pas dans `profiles`) et pousse un
+payload auto-suffisant : le worker n'a aucun accès à Supabase et aucune clé
+`service_role`.
+
+`backend/src/modules/notifications/contract.ts` existe **à l'identique** dans
+l'autre dépôt. Il n'importe rien, pour pouvoir être copié tel quel. Toute
+évolution se porte des deux côtés, et **le worker se déploie avant l'API** : un
+consommateur en avance sait traiter l'ancien format, un producteur en avance
+empile des jobs que personne ne sait lire.
+
+`REDIS_URL` est **optionnelle**, contrairement aux autres variables : l'imposer
+rendrait Redis obligatoire pour tout développement local. Absente, le producteur
+le signale au démarrage et reste silencieux.
+
+L'appel depuis `WorkoutsService` est best-effort, comme `syncUnlocks` : l'XP est
+déjà créditée à ce moment-là, et remonter une panne de notification en 500 ferait
+ressaisir une séance que l'anti-triche refuserait comme trop rapprochée.
 
 ## Déploiement CapRover
 
