@@ -14,6 +14,17 @@ export type AppConfig = {
    * Optionnel tant que le webhook n'est pas branché.
    */
   revenuecatWebhookSecret?: string;
+  /**
+   * Connexion Redis pour la queue de notifications.
+   *
+   * Optionnelle, contrairement à la règle « crash au boot si une variable
+   * manque » : l'imposer rendrait Redis obligatoire pour tout développement
+   * local du backend. Absente, le producteur de notifications reste silencieux
+   * et le signale au démarrage. Même exception que le secret RevenueCat.
+   */
+  redisUrl?: string;
+  /** Doit correspondre à celui du service de notifications. */
+  notificationsQueueName: string;
 };
 
 export function validateEnv(raw: Record<string, unknown>): AppConfig {
@@ -49,5 +60,23 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
       ? raw.REVENUECAT_WEBHOOK_SECRET
       : undefined;
 
-  return { port, supabaseUrl, supabaseServiceRoleKey, revenuecatWebhookSecret };
+  const redisUrl =
+    typeof raw.REDIS_URL === 'string' && raw.REDIS_URL.trim() !== ''
+      ? raw.REDIS_URL.trim()
+      : undefined;
+
+  const notificationsQueueName =
+    typeof raw.NOTIFICATIONS_QUEUE_NAME === 'string' &&
+    raw.NOTIFICATIONS_QUEUE_NAME.trim() !== ''
+      ? raw.NOTIFICATIONS_QUEUE_NAME.trim()
+      : 'notifications';
+
+  return {
+    port,
+    supabaseUrl,
+    supabaseServiceRoleKey,
+    revenuecatWebhookSecret,
+    redisUrl,
+    notificationsQueueName,
+  };
 }
