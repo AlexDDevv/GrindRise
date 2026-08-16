@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { GamificationModule } from '../gamification/gamification.module';
 import { NarrativeModule } from '../narrative/narrative.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { WorkoutsController } from './workouts.controller';
 import { WorkoutsService } from './workouts.service';
@@ -13,7 +14,15 @@ import { WorkoutsService } from './workouts.service';
   // `NarrativeModule` est branché ici et non dans `GamificationModule` : c'est
   // le narratif qui réagit à la progression, jamais l'inverse. Le calcul d'XP
   // n'a pas à connaître l'existence des trames.
-  imports: [GamificationModule, NarrativeModule, UsersModule],
+  //
+  // `NotificationsModule` pour la même raison : c'est l'enregistrement d'une
+  // séance qui déclenche une notification, jamais le calcul d'XP.
+  imports: [
+    GamificationModule,
+    NarrativeModule,
+    NotificationsModule,
+    UsersModule,
+  ],
   controllers: [WorkoutsController],
   providers: [WorkoutsService],
   exports: [WorkoutsService],

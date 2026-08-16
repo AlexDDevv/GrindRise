@@ -8,6 +8,7 @@ import {
   NarrativeService,
   type NarrativeBeat,
 } from '../narrative/narrative.service';
+import { NotificationsService } from '../notifications/notifications.service';
 // Import de type seul, donc effacé à la compilation : aucune dépendance à
 // l'exécution, et la règle « aucun module n'importe les providers internes d'un
 // autre » reste tenue. Réutiliser la forme de `GET /users/me` évite au mobile
@@ -67,6 +68,7 @@ export class WorkoutsService {
     private readonly users: UsersService,
     private readonly gamification: GamificationService,
     private readonly narrative: NarrativeService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -111,6 +113,27 @@ export class WorkoutsService {
           error instanceof Error ? error.message : String(error)
         }`,
       );
+    }
+
+    // Après le narratif et hors de la transaction : même raisonnement que
+    // syncUnlocks. L'XP est déjà créditée, et remonter une panne de
+    // notification en 500 ferait ressaisir une séance qui serait alors refusée
+    // comme trop rapprochée. Un email manqué est sans gravité, une séance
+    // perdue non.
+    if (award.levelAfter > award.levelBefore) {
+      try {
+        await this.notifications.enqueueLevelUp(profileId, {
+          username: profile.username,
+          levelBefore: award.levelBefore,
+          levelAfter: award.levelAfter,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Notification de palier non produite pour ${profileId} : ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
     }
 
     return {
