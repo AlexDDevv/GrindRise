@@ -89,7 +89,7 @@ describe('NotificationsService.enqueueLevelUp', () => {
       levelAfter: 2,
     });
 
-    expect(calls[0][2]).toMatchObject({ attempts: 5 });
+    expect(calls[0][2]).toMatchObject({ attempts: 8 });
   });
 
   it("ne fait rien quand Redis n'est pas configurée", async () => {
