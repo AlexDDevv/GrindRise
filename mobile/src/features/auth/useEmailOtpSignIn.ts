@@ -138,11 +138,6 @@ function translateAuthError(
   message: string,
   phase: 'request' | 'verify',
 ): string {
-  // DIAGNOSTIC TEMPORAIRE — à retirer une fois le parcours prouvé de bout en
-  // bout. Sans ce log, « Code invalide ou expiré » masque indifféremment un
-  // plafond d'envoi atteint, un gabarit sans token et un vrai code erroné.
-  console.warn(`[auth][diag] GoTrue brut (${phase}) :`, message);
-
   const normalized = message.toLowerCase();
   const fallback = 'Connexion impossible pour le moment. Réessaie dans un instant.';
 
