@@ -73,8 +73,31 @@ que le gabarit « Magic Link » du dashboard Supabase (Authentication > Email
 Templates) contienne `{{ .Token }}` et non `{{ .ConfirmationURL }}` — sinon
 l'email porte un lien et aucun code.
 
-Builds iOS/Android : via **EAS Build** (build cloud, pas de Mac requis) — à
-configurer le moment venu avec `pnpm dlx eas-cli build:configure`.
+Builds iOS/Android : via **EAS Build** (build cloud, pas de Mac requis).
+`mobile/eas.json` définit trois profils, choisis par `--profile` — il n'y a
+aucun fichier à éditer à la main avant un build :
+
+```bash
+cd mobile
+pnpm build:dev       # dev-client, distribution interne
+pnpm build:preview   # build interne installable, API de production
+pnpm build:prod      # build de store, API de production
+```
+
+`EXPO_PUBLIC_API_URL` n'est **pas lue au démarrage** : Expo l'inline dans le
+bundle au moment du build. Comme `mobile/.env` est gitignoré, il n'est pas
+envoyé aux serveurs EAS — les valeurs des builds viennent du champ `env` de
+chaque profil d'`eas.json`, pas du `.env`. Une variable absente au build donne
+un binaire durablement cassé : `isApiConfigured` passe à false et `apiRequest`
+échoue sans tenter le réseau, ce qui ne se voit qu'une fois l'app installée.
+
+Le profil `development` ne fige aucune `EXPO_PUBLIC_*` : un build dev-client
+charge son bundle depuis le Metro local, donc depuis le `.env` de la machine.
+
+Restent à faire avant le premier build : lier le projet à un compte EAS
+(`pnpm dlx eas-cli init`, qui écrit `extra.eas.projectId` et `owner` dans
+`app.json`) et décider où vivent les deux variables Supabase, aujourd'hui
+absentes des profils — voir la fin de `mobile/.env.example`.
 
 ### Backend
 
