@@ -25,7 +25,71 @@ export type AppConfig = {
   redisUrl?: string;
   /** Doit correspondre à celui du service de notifications. */
   notificationsQueueName: string;
+  /**
+   * Origines autorisées à appeler l'API depuis un navigateur
+   * (`CORS_ALLOWED_ORIGINS`, séparées par des virgules).
+   *
+   * Vide par défaut, et c'est le bon défaut : aucune origine n'est autorisée
+   * tant qu'on n'en nomme pas une. Le mobile natif n'est pas concerné — il
+   * n'envoie pas d'en-tête `Origin` — donc une liste vide ne casse rien
+   * aujourd'hui. Le jour où un dashboard web arrive, il s'ajoute ici, sans
+   * redéploiement de code.
+   */
+  corsAllowedOrigins: string[];
 };
+
+/**
+ * Découpe `CORS_ALLOWED_ORIGINS` en origines normalisées.
+ *
+ * Deux refus, tous deux au boot plutôt qu'à la première requête :
+ *
+ * - le joker `*`, qui rendrait la liste blanche décorative. Une API dont
+ *   *toutes* les routes sont authentifiées n'a aucune raison d'être appelable
+ *   depuis n'importe quelle page web ;
+ * - une valeur qui n'est pas une origine nue (`https://exemple.fr`), parce que
+ *   l'en-tête `Origin` d'un navigateur n'en est jamais une autre. Un
+ *   `https://exemple.fr/` avec barre finale ne correspondrait à rien et se
+ *   diagnostiquerait des heures plus tard, dans une console de navigateur.
+ */
+function parseAllowedOrigins(raw: unknown): string[] {
+  if (typeof raw !== 'string' || raw.trim() === '') return [];
+
+  const origins = raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '');
+
+  for (const origin of origins) {
+    if (origin === '*') {
+      throw new Error(
+        'CORS_ALLOWED_ORIGINS ne peut pas valoir « * » : toutes les routes de ' +
+          "l'API sont authentifiées, aucune page tierce n'a à les appeler. " +
+          'Nommer les origines une à une.',
+      );
+    }
+
+    let parsed: URL;
+    try {
+      parsed = new URL(origin);
+    } catch {
+      throw new Error(
+        `CORS_ALLOWED_ORIGINS : « ${origin} » n'est pas une origine valide. ` +
+          'Attendu : schéma://hôte[:port], par exemple https://app.grindrise.fr.',
+      );
+    }
+
+    // `URL.origin` recompose la forme canonique : tout écart (barre finale,
+    // chemin, identifiants, fragment) se voit ici.
+    if (parsed.origin !== origin) {
+      throw new Error(
+        `CORS_ALLOWED_ORIGINS : « ${origin} » porte autre chose qu'une origine. ` +
+          `Attendu « ${parsed.origin} », sans barre finale ni chemin.`,
+      );
+    }
+  }
+
+  return [...new Set(origins)];
+}
 
 export function validateEnv(raw: Record<string, unknown>): AppConfig {
   const missing: string[] = [];
@@ -78,5 +142,6 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     revenuecatWebhookSecret,
     redisUrl,
     notificationsQueueName,
+    corsAllowedOrigins: parseAllowedOrigins(raw.CORS_ALLOWED_ORIGINS),
   };
 }

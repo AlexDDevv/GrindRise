@@ -37,6 +37,44 @@ describe('validateEnv', () => {
     expect(config.notificationsQueueName).toBe('notifs-test');
   });
 
+  it("n'autorise aucune origine par défaut", () => {
+    expect(validateEnv(complete).corsAllowedOrigins).toEqual([]);
+  });
+
+  it('découpe CORS_ALLOWED_ORIGINS sur les virgules, espaces compris', () => {
+    const config = validateEnv({
+      ...complete,
+      CORS_ALLOWED_ORIGINS:
+        ' https://app.grindrise.fr , http://localhost:5173 ,, ',
+    });
+
+    expect(config.corsAllowedOrigins).toEqual([
+      'https://app.grindrise.fr',
+      'http://localhost:5173',
+    ]);
+  });
+
+  it('refuse le joker au boot plutôt qu’à la première requête', () => {
+    expect(() =>
+      validateEnv({ ...complete, CORS_ALLOWED_ORIGINS: '*' }),
+    ).toThrow(/CORS_ALLOWED_ORIGINS.*\*/s);
+  });
+
+  it('refuse une barre finale, qui ne correspondrait à aucun en-tête Origin', () => {
+    expect(() =>
+      validateEnv({
+        ...complete,
+        CORS_ALLOWED_ORIGINS: 'https://app.grindrise.fr/',
+      }),
+    ).toThrow(/sans barre finale/);
+  });
+
+  it('refuse une valeur qui n’est pas une URL', () => {
+    expect(() =>
+      validateEnv({ ...complete, CORS_ALLOWED_ORIGINS: 'app.grindrise.fr' }),
+    ).toThrow(/n'est pas une origine valide/);
+  });
+
   it('refuse toujours de démarrer sans les variables Supabase', () => {
     expect(() => validateEnv({})).toThrow(
       /SUPABASE_URL.*SUPABASE_SERVICE_ROLE_KEY/s,

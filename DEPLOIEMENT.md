@@ -243,9 +243,40 @@ Optionnelles :
 | `NOTIFICATIONS_QUEUE_NAME` | `notifications` | doit correspondre à celui du worker |
 | `PORT` | `3000` | inutile de la déclarer |
 | `REVENUECAT_WEBHOOK_SECRET` | aucune | seulement quand le webhook sera branché |
+| `CORS_ALLOWED_ORIGINS` | aucune | origines web autorisées, séparées par des virgules. Sans objet pour le mobile |
 
 `REDIS_URL` est volontairement optionnelle, contrairement à la règle du crash au
 boot : l'imposer rendrait Redis obligatoire pour tout développement local.
+
+#### Ouvrir l'API à un navigateur
+
+CORS est actif, avec une liste blanche vide par défaut : **aucune origine web
+n'est autorisée** tant qu'on n'en nomme pas une. Le mobile natif n'est pas
+concerné — il n'envoie pas d'en-tête `Origin`, CORS ne s'applique donc pas à
+lui, et une liste vide ne lui change rien.
+
+Le jour où un dashboard web ou un back-office apparaît, il s'ajoute **sans
+toucher au code ni redéployer** : dans CapRover, *Configurations de l'App* →
+`CORS_ALLOWED_ORIGINS` → **Enregistrer & Redémarrer**. Le container repart avec
+la nouvelle liste ; l'image ne bouge pas.
+
+```
+CORS_ALLOWED_ORIGINS=https://app.grindrise.fr,https://admin.grindrise.fr
+```
+
+Trois pièges, tous transformés en refus au démarrage plutôt qu'en énigme de
+console de navigateur :
+
+- **barre finale ou chemin** (`https://app.grindrise.fr/`) : l'en-tête `Origin`
+  d'un navigateur n'en porte jamais, la valeur ne correspondrait à rien ;
+- **`*`** : refusé. Toutes les routes de l'API sont authentifiées par
+  `Authorization: Bearer` ; un joker permettrait à n'importe quelle page web de
+  les appeler avec le jeton d'une victime ;
+- **schéma et port comptent** : `http://` ≠ `https://`, et `:5173` ≠ le défaut.
+
+Un refus CORS n'est pas un refus d'accès : l'API répond normalement, sans
+l'en-tête `Access-Control-Allow-Origin`, et c'est le navigateur qui empêche la
+page appelante de lire la réponse. Inutile de chercher un 403 dans les logs.
 
 Deux réglages hors variables, dans *Configurations de l'App* :
 
@@ -349,8 +380,6 @@ la clé anon. Les essais contre l'environnement de test passent par `mobile/.env
 
 - **Aucune intégration continue.** L'invariant des deux `contract.ts` identiques
   ne tient que sur un script lancé à la main, dans l'autre dépôt.
-- **CORS n'est activé nulle part** dans `backend/src`. Sans effet sur mobile
-  natif, mais l'app est inutilisable depuis un navigateur.
 - **Le premier build EAS**, et les deux variables Supabase à porter dans les
   profils.
 - **Rendre le bloc `[auth]` de `config.toml` valable pour un projet hébergé**, ce
