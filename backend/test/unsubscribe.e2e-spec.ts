@@ -115,6 +115,32 @@ describe('Désabonnement (e2e)', () => {
     expect(db.updates).toHaveLength(0);
   });
 
+  it('accepte le POST du désabonnement en un clic (RFC 8058)', async () => {
+    // Le bouton que le client mail affiche lui-même, sur la foi de l'en-tête
+    // List-Unsubscribe-Post posé par le worker. Sans cette route, ce bouton
+    // échouerait en silence.
+    const response = await request(app.getHttpServer())
+      .post('/notifications/unsubscribe')
+      .query({ token: validToken(PROFILE_ID) })
+      .type('form')
+      .send('List-Unsubscribe=One-Click')
+      .expect(200);
+
+    expect(db.updates).toEqual([{ notify_level_up: false }]);
+    expect(response.headers['content-type']).toMatch(/text\/html/);
+  });
+
+  it('répond 400 au POST d’un jeton falsifié, sans rien écrire', async () => {
+    await request(app.getHttpServer())
+      .post('/notifications/unsubscribe')
+      .query({ token: `${validToken(PROFILE_ID).slice(0, -1)}X` })
+      .type('form')
+      .send('List-Unsubscribe=One-Click')
+      .expect(400);
+
+    expect(db.updates).toHaveLength(0);
+  });
+
   it('reste idempotent : recliquer le lien réussit encore', async () => {
     const token = validToken(PROFILE_ID);
 

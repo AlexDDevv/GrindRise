@@ -311,10 +311,14 @@ openssl rand -base64 48
 Comment ça marche, en trois points :
 
 1. l'API compose un lien signé (HMAC-SHA256 du `profile_id`) et le joint au job
-   déposé dans la queue. Le worker ne signe rien, il recopie l'URL ;
+   déposé dans la queue. Le worker ne signe rien : il recopie l'URL en pied de
+   message et la reprend dans les en-têtes `List-Unsubscribe` et
+   `List-Unsubscribe-Post` (RFC 2369 et 8058), d'où le bouton « Se désabonner »
+   que le client mail affiche de lui-même ;
 2. le clic atteint `GET /notifications/unsubscribe?token=…` — route publique,
    protégée par la signature du jeton et non par un JWT : se désabonner ne doit
-   pas exiger de se connecter ;
+   pas exiger de se connecter. Le bouton du client mail, lui, `POST`e sur la
+   même URL, comme l'exige le désabonnement en un clic ;
 3. l'API bascule `profiles.notify_level_up` à faux et sert une page de
    confirmation.
 
@@ -331,12 +335,19 @@ depuis le tableau de bord BullMQ.
 Vérifier après déploiement, sans envoyer d'email :
 
 ```bash
+API=https://api.apps.grindrise.fr/notifications/unsubscribe
+
 # 400 + une page HTML lisible : la route est publique et le jeton est vérifié.
-curl -si 'https://api.apps.grindrise.fr/notifications/unsubscribe?token=peu-importe' | head -3
+curl -si "$API?token=peu-importe" | head -3
+
+# Idem en POST : c'est le chemin du bouton « Se désabonner » du client mail.
+curl -si -X POST "$API?token=peu-importe" | head -3
 ```
 
-Un `401` ici signifierait que le décorateur `@Public()` a sauté, et que tous les
-liens déjà partis sont morts.
+Un `401` sur l'une des deux signifierait que le décorateur `@Public()` a sauté,
+et que tous les liens déjà partis sont morts. Un `404` sur le `POST` seul
+donnerait un bouton de désabonnement qui échoue en silence — le pire cas, parce
+que l'en-tête continue de le promettre.
 
 Deux réglages hors variables, dans *Configurations de l'App* :
 
