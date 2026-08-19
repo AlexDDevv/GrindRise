@@ -138,6 +138,14 @@ donc à lancer après **toute** modification de `supabase/migrations/`.
 le contexte de build Docker se limite à `backend/`, et Metro ne résout pas les
 imports hors du dossier du projet. **À relancer après chaque migration.**
 
+## Déployer
+
+Voir [`DEPLOIEMENT.md`](DEPLOIEMENT.md) : les deux environnements (production et
+test), les migrations Supabase, la configuration auth, l'API sur CapRover et le
+pointage du mobile. La plateforme partagée — VPS, CapRover, DNS, Redis, Brevo —
+est documentée dans le dépôt
+[grindrise-notifications](https://github.com/AlexDDevv/grindrise-notifications).
+
 ## Secrets
 
 Aucun `.env` n'est commité. Les `.env.example` documentent les variables
