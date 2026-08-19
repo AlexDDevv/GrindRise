@@ -36,6 +36,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "relay:ipv4": "node scripts/relay-ipv4.mjs",
     "build:dev": "pnpm dlx eas-cli build --profile development",
     "build:preview": "pnpm dlx eas-cli build --profile preview",
     "build:prod": "pnpm dlx eas-cli build --profile production"
