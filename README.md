@@ -64,14 +64,19 @@ L'API écoute déjà sur `0.0.0.0`.
 `EXPO_PUBLIC_SUPABASE_URL` est l'**URL du projet** (`https://<ref>.supabase.co`),
 sans suffixe de chemin : le client ajoute lui-même `/rest/v1`, `/auth/v1`, etc.
 
-Scanner le QR code avec Expo Go (Android/iOS). L'app démarre même sans `.env`,
-mais l'écran de connexion affiche alors un message de configuration manquante :
-il n'existe aucun moyen d'entrer sans un projet Supabase joignable.
+Scanner le QR code avec Expo Go (Android/iOS) — mais Expo Go n'exécute que le
+SDK le plus récent, et un appareil que son constructeur ne met plus à jour en
+reçoit une version trop ancienne, ce qui rend le projet « incompatible ». La
+solution de repli est l'émulateur Android : voir `docs/emulateur-android-wsl.md`.
 
-La connexion se fait par **code à usage unique envoyé par email**. Elle suppose
-que le gabarit « Magic Link » du dashboard Supabase (Authentication > Email
-Templates) contienne `{{ .Token }}` et non `{{ .ConfirmationURL }}` — sinon
-l'email porte un lien et aucun code.
+L'app démarre même sans `.env`, mais l'écran de connexion affiche alors un
+message de configuration manquante : il n'existe aucun moyen d'entrer sans un
+projet Supabase joignable.
+
+La connexion se fait par **code à usage unique envoyé par email**, acheminé par
+le relais SMTP Brevo branché sur Supabase Auth. Les **deux** gabarits concernés
+portent `{{ .Token }}` et aucun lien : « Confirm signup » sert à la première
+demande d'un compte inexistant, « Magic Link » à toutes les suivantes.
 
 Builds iOS/Android : via **EAS Build** (build cloud, pas de Mac requis).
 `mobile/eas.json` définit trois profils, choisis par `--profile` — il n'y a
@@ -183,6 +188,9 @@ sans toucher un seul `xp_events`.
 
 ### Ce qui reste à valider à la main
 
-Aucun appareil ni émulateur n'est disponible en développement : le rendu et le
-parcours dans Expo Go n'ont jamais été joués. Voir la section « État actuel »
-de `docs/ROADMAP.md` pour la liste des points à vérifier.
+Un émulateur Android est désormais disponible et l'app y démarre — voir
+`docs/emulateur-android-wsl.md`. Le parcours de connexion, lui, a été prouvé
+hors mobile (appels directs à l'API auth) puis depuis l'app en version web ; il
+reste à le rejouer dans l'émulateur. Les performances réelles, le rendu sur
+écran physique et le comportement d'un binaire signé attendent le premier build
+EAS. Voir la section « État actuel » de `docs/ROADMAP.md`.
