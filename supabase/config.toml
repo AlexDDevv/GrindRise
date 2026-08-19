@@ -243,6 +243,39 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Gabarits de connexion par code à 6 chiffres.
+#
+# Deux gabarits et non un : `confirmation` part à la toute première demande d'un
+# compte qui n'existe pas encore, `magic_link` à toutes les suivantes — le
+# basculement se fait sur `email_confirmed_at`, pas sur l'existence de la ligne.
+# N'en modifier qu'un donne donc un parcours qui marche une fois sur deux, ce qui
+# se lit comme un bug de code.
+#
+# Leur contenu est identique aujourd'hui, mais les deux fichiers sont distincts
+# à dessein : ce sont deux moments différents du parcours (première venue,
+# retour), et les différencier un jour ne doit pas demander de remaniement.
+#
+# Ni l'un ni l'autre ne porte `{{ .ConfirmationURL }}` ni le moindre `href` : le
+# code se saisit dans l'app, et aucun deep link n'est configuré, donc un lien ne
+# mènerait nulle part.
+#
+# ⚠️  Ces fichiers ne se déploient PAS tout seuls sur les projets hébergés.
+#     `supabase config push` n'a aucune granularité : il enverrait tout ce
+#     fichier, dont le bloc `[auth]` ci-dessus écrit pour la pile locale
+#     (`site_url` en 127.0.0.1, `email_sent = 2`, `max_frequency = "1s"`,
+#     `enable_confirmations = false`), et écraserait la configuration des
+#     projets de production et de test. Tant que ce bloc n'a pas été rendu
+#     valable pour un projet hébergé, ces gabarits se recopient à la main dans
+#     le dashboard — ils sont ici pour l'historique git et la relecture, et
+#     servent aussi à la pile locale.
+[auth.email.template.confirmation]
+subject = "{{ .Token }} est ton code de connexion Grindrise"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "{{ .Token }} est ton code de connexion Grindrise"
+content_path = "./supabase/templates/magic_link.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"
