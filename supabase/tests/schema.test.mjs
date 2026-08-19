@@ -187,6 +187,62 @@ describe('fuseau horaire du profil', () => {
   });
 });
 
+describe('désabonnement des emails de palier', () => {
+  let moi;
+  let autrui;
+
+  before(async () => {
+    moi = await createUser('opt-out-moi@grindrise.test');
+    autrui = await createUser('opt-out-autrui@grindrise.test');
+  });
+
+  test('un nouveau profil reçoit les emails de palier', async () => {
+    const { rows } = await db.query(
+      `select notify_level_up from public.profiles where id = $1`,
+      [moi],
+    );
+    assert.equal(rows[0].notify_level_up, true);
+  });
+
+  test('le propriétaire peut se désabonner lui-même', async () => {
+    // Le point de la migration : c'est une préférence d'utilisateur, pas une
+    // donnée de jeu. Elle doit s'écrire depuis le mobile, sans passer par
+    // l'API — donc par `profiles_update_own`, sans policy supplémentaire.
+    const res = await asUser(
+      moi,
+      `update public.profiles set notify_level_up = false where id = '${moi}'`,
+    );
+    assert.equal(res.affectedRows, 1);
+
+    const { rows } = await db.query(
+      `select notify_level_up from public.profiles where id = $1`,
+      [moi],
+    );
+    assert.equal(rows[0].notify_level_up, false);
+  });
+
+  test('désabonner autrui ne touche aucune ligne', async () => {
+    const res = await asUser(
+      moi,
+      `update public.profiles set notify_level_up = false where id = '${autrui}'`,
+    );
+    assert.equal(res.affectedRows, 0);
+
+    const { rows } = await db.query(
+      `select notify_level_up from public.profiles where id = $1`,
+      [autrui],
+    );
+    assert.equal(rows[0].notify_level_up, true);
+  });
+
+  test('un visiteur sans session ne voit ni ne modifie la préférence', async () => {
+    const res = await asAnon(
+      `update public.profiles set notify_level_up = false where id = '${autrui}'`,
+    );
+    assert.equal(res.affectedRows, 0);
+  });
+});
+
 describe('xp_events est append-only', () => {
   let userId;
   let workoutId;

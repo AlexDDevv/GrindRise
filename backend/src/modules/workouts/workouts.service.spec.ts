@@ -18,6 +18,8 @@ function build(overrides: {
   levelBefore: number;
   levelAfter: number;
   enqueue?: jest.Mock;
+  /** `profiles.notify_level_up` du joueur. Abonné sauf mention contraire. */
+  notifyLevelUp?: boolean;
 }) {
   const enqueue = overrides.enqueue ?? jest.fn(() => Promise.resolve());
 
@@ -28,6 +30,7 @@ function build(overrides: {
           id: PROFILE_ID,
           username: 'Ferrum',
           timezone: 'Europe/Paris',
+          notify_level_up: overrides.notifyLevelUp ?? true,
         },
         progress: { level: overrides.levelBefore },
       }),
@@ -67,7 +70,27 @@ describe('WorkoutsService.createWorkoutLog', () => {
       username: 'Ferrum',
       levelBefore: 4,
       levelAfter: 5,
+      notifyLevelUp: true,
     });
+  });
+
+  it('transmet la préférence de notification lue sur le profil', async () => {
+    // Le profil est déjà chargé en tête de méthode : la préférence voyage avec
+    // le pseudo, sans requête supplémentaire. C'est le producteur qui en tire
+    // les conséquences — ici, on vérifie seulement qu'elle ne se perd pas en
+    // route.
+    const { service, enqueue } = build({
+      levelBefore: 4,
+      levelAfter: 5,
+      notifyLevelUp: false,
+    });
+
+    await service.createWorkoutLog(PROFILE_ID, input);
+
+    expect(enqueue).toHaveBeenCalledWith(
+      PROFILE_ID,
+      expect.objectContaining({ notifyLevelUp: false }),
+    );
   });
 
   it('ne produit rien quand le niveau ne bouge pas', async () => {

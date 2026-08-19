@@ -244,9 +244,16 @@ Optionnelles :
 | `PORT` | `3000` | inutile de la déclarer |
 | `REVENUECAT_WEBHOOK_SECRET` | aucune | seulement quand le webhook sera branché |
 | `CORS_ALLOWED_ORIGINS` | aucune | origines web autorisées, séparées par des virgules. Sans objet pour le mobile |
+| `UNSUBSCRIBE_TOKEN_SECRET` | aucune | **requise dès que `REDIS_URL` l'est.** 32 caractères minimum |
+| `PUBLIC_API_URL` | aucune | **requise dès que `REDIS_URL` l'est.** URL publique de l'API, sans barre finale |
 
 `REDIS_URL` est volontairement optionnelle, contrairement à la règle du crash au
 boot : l'imposer rendrait Redis obligatoire pour tout développement local.
+
+Les deux dernières sont optionnelles **par ricochet** : sans queue, aucun email
+de palier ne part, il n'y a donc aucun lien de désabonnement à signer. Dès que
+`REDIS_URL` est renseignée, elles deviennent requises et leur absence fait
+échouer le boot — voir *Désabonnement des emails de palier* ci-dessous.
 
 #### Ouvrir l'API à un navigateur
 
@@ -278,6 +285,59 @@ Un refus CORS n'est pas un refus d'accès : l'API répond normalement, sans
 l'en-tête `Access-Control-Allow-Origin`, et c'est le navigateur qui empêche la
 page appelante de lire la réponse. Inutile de chercher un 403 dans les logs.
 
+#### Désabonnement des emails de palier
+
+L'email de palier n'est pas strictement transactionnel : il célèbre une
+progression, il ne répond à aucune demande. La réglementation (CAN-SPAM,
+RGPD/ePrivacy) impose donc d'y joindre un moyen de refus. Le code de connexion
+OTP, lui, reste transactionnel — il n'est pas concerné, et ne doit surtout pas
+devenir refusable.
+
+Deux variables portent ce mécanisme, et l'API **refuse de démarrer** sans elles
+dès que `REDIS_URL` est posée. Ce n'est pas un excès de zèle : sans elles, le
+producteur n'empilerait plus aucun job, et la panne se lirait comme « les emails
+de palier ne partent plus », sans cause visible.
+
+```bash
+# Générer le secret de signature — une fois, à conserver.
+openssl rand -base64 48
+```
+
+| Variable | Note |
+|---|---|
+| `UNSUBSCRIBE_TOKEN_SECRET` | 32 caractères minimum. **La changer invalide tous les liens déjà envoyés** : les emails restent dans les boîtes des années, ce secret ne se fait pas tourner |
+| `PUBLIC_API_URL` | `https://api.apps.grindrise.fr` — sans barre finale. Derrière le proxy CapRover, l'API ne voit que son port interne, elle ne peut pas la deviner |
+
+Comment ça marche, en trois points :
+
+1. l'API compose un lien signé (HMAC-SHA256 du `profile_id`) et le joint au job
+   déposé dans la queue. Le worker ne signe rien, il recopie l'URL ;
+2. le clic atteint `GET /notifications/unsubscribe?token=…` — route publique,
+   protégée par la signature du jeton et non par un JWT : se désabonner ne doit
+   pas exiger de se connecter ;
+3. l'API bascule `profiles.notify_level_up` à faux et sert une page de
+   confirmation.
+
+La RLS autorise déjà le propriétaire à réécrire la colonne (`profiles_update_own`),
+donc un écran de réglages mobile pourra la rebasculer sans passer par l'API.
+**Cet écran n'existe pas encore** : un joueur désabonné ne peut pas se
+réabonner tout seul aujourd'hui, et la page de confirmation se garde bien de
+lui promettre le contraire.
+
+Le refus est vérifié **avant la mise en file**, jamais côté worker : un job
+empilé finit toujours par être traité, ne serait-ce que par un rejeu manuel
+depuis le tableau de bord BullMQ.
+
+Vérifier après déploiement, sans envoyer d'email :
+
+```bash
+# 400 + une page HTML lisible : la route est publique et le jeton est vérifié.
+curl -si 'https://api.apps.grindrise.fr/notifications/unsubscribe?token=peu-importe' | head -3
+```
+
+Un `401` ici signifierait que le décorateur `@Public()` a sauté, et que tous les
+liens déjà partis sont morts.
+
 Deux réglages hors variables, dans *Configurations de l'App* :
 
 | Réglage | Valeur |
@@ -290,6 +350,12 @@ que l'API n'y dépose quoi que ce soit : un consommateur en avance sait traiter
 l'ancien format, un producteur en avance empile des jobs que personne ne sait
 lire. L'API se déploie pourtant en premier — sans `REDIS_URL` elle ne produit
 rien. C'est l'ajout de cette variable, en dernier, qui ouvre le robinet.
+
+**Et à chaque évolution du contrat, même règle.** Le champ `unsubscribeUrl` en
+est une : le worker doit partir avant l'API, sinon les jobs empilés portent un
+champ qu'il ne sait pas lire. Il est déclaré facultatif précisément pour que le
+worker neuf sache aussi traiter les jobs de l'API d'avant, restés dans la file
+pendant la bascule.
 
 ### Vérifier après déploiement
 

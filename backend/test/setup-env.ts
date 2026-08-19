@@ -14,3 +14,12 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'test-service-role-key';
  */
 process.env.CORS_ALLOWED_ORIGINS ??=
   'https://app.grindrise.fr,http://localhost:5173';
+
+/**
+ * De quoi signer et composer un lien de désabonnement. Requises dès que
+ * `REDIS_URL` est posée ; ici elles servent à `unsubscribe.e2e-spec.ts`, qui
+ * vérifie l'endpoint sans queue.
+ */
+process.env.UNSUBSCRIBE_TOKEN_SECRET ??=
+  'secret-de-test-assez-long-pour-etre-credible';
+process.env.PUBLIC_API_URL ??= 'https://api.exemple.test';

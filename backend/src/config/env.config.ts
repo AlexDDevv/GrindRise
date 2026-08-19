@@ -36,7 +36,36 @@ export type AppConfig = {
    * redéploiement de code.
    */
   corsAllowedOrigins: string[];
+  /**
+   * Clé HMAC signant les liens de désabonnement des emails de palier.
+   *
+   * Optionnelle **seulement tant que `REDIS_URL` est absente** : sans queue,
+   * aucun email ne part, il n'y a donc aucun lien à signer. Dès que l'API peut
+   * produire des notifications, elle devient requise — un email de palier sans
+   * moyen de s'en désabonner n'a pas le droit de partir.
+   *
+   * La changer invalide tous les liens déjà envoyés : à traiter comme un
+   * secret durable, pas comme une valeur qu'on fait tourner.
+   */
+  unsubscribeTokenSecret?: string;
+  /**
+   * URL publique de l'API, servant à composer le lien de désabonnement.
+   *
+   * L'API ne peut pas la deviner : derrière le proxy CapRover elle ne voit que
+   * son port interne. Même règle d'optionalité que le secret ci-dessus.
+   */
+  publicApiUrl?: string;
 };
+
+/**
+ * Longueur minimale du secret de signature.
+ *
+ * 32 caractères, soit l'ordre de grandeur d'une sortie de 256 bits encodée.
+ * En dessous, un lien de désabonnement devient forgeable par force brute, et
+ * on désabonnerait n'importe qui. La contrainte est vérifiée au boot parce
+ * qu'un secret faible ne se remarque jamais autrement.
+ */
+const MIN_SECRET_LENGTH = 32;
 
 /**
  * Découpe `CORS_ALLOWED_ORIGINS` en origines normalisées.
@@ -135,6 +164,26 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
       ? raw.NOTIFICATIONS_QUEUE_NAME.trim()
       : 'notifications';
 
+  const unsubscribeTokenSecret = readUnsubscribeSecret(raw);
+  const publicApiUrl = readPublicApiUrl(raw);
+
+  // La règle du crash au boot rattrape ici ce que l'optionalité de REDIS_URL
+  // avait relâché : Redis configurée, c'est une API qui produit des emails de
+  // palier. Sans lien de désabonnement, ces emails sont illégaux — mieux vaut
+  // un container qui ne monte pas qu'un envoi non conforme.
+  if (redisUrl && (!unsubscribeTokenSecret || !publicApiUrl)) {
+    const absentes = [
+      unsubscribeTokenSecret ? null : 'UNSUBSCRIBE_TOKEN_SECRET',
+      publicApiUrl ? null : 'PUBLIC_API_URL',
+    ].filter((name): name is string => name !== null);
+
+    throw new Error(
+      `REDIS_URL est configurée, donc l'API produit des emails de palier : ` +
+        `${absentes.join(' et ')} ${absentes.length > 1 ? 'sont requises' : 'est requise'} ` +
+        'pour y joindre un lien de désabonnement. Voir .env.example.',
+    );
+  }
+
   return {
     port,
     supabaseUrl,
@@ -143,5 +192,51 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     redisUrl,
     notificationsQueueName,
     corsAllowedOrigins: parseAllowedOrigins(raw.CORS_ALLOWED_ORIGINS),
+    unsubscribeTokenSecret,
+    publicApiUrl,
   };
+}
+
+function readUnsubscribeSecret(
+  raw: Record<string, unknown>,
+): string | undefined {
+  const value = raw.UNSUBSCRIBE_TOKEN_SECRET;
+  if (typeof value !== 'string' || value.trim() === '') return undefined;
+
+  const secret = value.trim();
+  if (secret.length < MIN_SECRET_LENGTH) {
+    throw new Error(
+      `UNSUBSCRIBE_TOKEN_SECRET fait ${secret.length} caractères, ` +
+        `${MIN_SECRET_LENGTH} au minimum sont attendus. ` +
+        'En générer un : openssl rand -base64 48.',
+    );
+  }
+
+  return secret;
+}
+
+/** Origine nue, sans barre finale : le chemin est ajouté à la composition. */
+function readPublicApiUrl(raw: Record<string, unknown>): string | undefined {
+  const value = raw.PUBLIC_API_URL;
+  if (typeof value !== 'string' || value.trim() === '') return undefined;
+
+  const candidate = value.trim().replace(/\/+$/, '');
+
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    throw new Error(
+      `PUBLIC_API_URL invalide : « ${candidate} ». ` +
+        'Attendu : https://api.exemple.fr.',
+    );
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(
+      `PUBLIC_API_URL doit être en http ou https, reçu « ${parsed.protocol} ».`,
+    );
+  }
+
+  return candidate;
 }

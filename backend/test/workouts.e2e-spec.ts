@@ -27,6 +27,7 @@ const PROFILE_ROW = {
   username: 'grind',
   class_id: 'berserker',
   timezone: 'Europe/Paris',
+  notify_level_up: true,
   created_at: '2026-08-11T09:00:00.000Z',
 };
 

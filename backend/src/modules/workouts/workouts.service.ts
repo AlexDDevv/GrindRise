@@ -126,6 +126,10 @@ export class WorkoutsService {
           username: profile.username,
           levelBefore: award.levelBefore,
           levelAfter: award.levelAfter,
+          // Le profil est déjà en main, lu en tête de méthode : la préférence
+          // de notification voyage avec le pseudo plutôt que de coûter une
+          // requête de plus dans le chemin d'une séance.
+          notifyLevelUp: profile.notify_level_up,
         });
       } catch (error) {
         this.logger.warn(

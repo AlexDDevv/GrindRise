@@ -176,6 +176,7 @@ export type Database = {
           class_id: string | null
           created_at: string
           id: string
+          notify_level_up: boolean
           timezone: string
           username: string | null
         }
@@ -183,6 +184,7 @@ export type Database = {
           class_id?: string | null
           created_at?: string
           id: string
+          notify_level_up?: boolean
           timezone?: string
           username?: string | null
         }
@@ -190,6 +192,7 @@ export type Database = {
           class_id?: string | null
           created_at?: string
           id?: string
+          notify_level_up?: boolean
           timezone?: string
           username?: string | null
         }
