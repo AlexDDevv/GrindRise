@@ -21,6 +21,18 @@ export type LevelUpInput = {
 };
 
 /**
+ * Temps total accordé à la production d'une notification.
+ *
+ * Un `add` sain prend une vingtaine de millisecondes : deux secondes laissent
+ * une marge large. Ce garde-temps ne double pas la gestion d'erreur, il couvre
+ * le cas qu'elle ne voit pas — l'attente. `maxRetriesPerRequest` et
+ * `enableOfflineQueue` ne bornent que les commandes d'une connexion DÉJÀ
+ * établie ; Redis jamais joignable (un mot de passe mal recopié suffit) et
+ * BullMQ attend indéfiniment que la connexion soit « prête » avant d'empiler.
+ */
+const ENQUEUE_DEADLINE_MS = 2_000;
+
+/**
  * Producteur de notifications — et rien d'autre.
  *
  * L'API ne connaît pas le worker : elle dépose un message dans une queue et
@@ -45,9 +57,58 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Produit la notification sans jamais retenir la requête HTTP appelante.
+   *
+   * Le garde-temps couvre toute la méthode, lecture de l'email comprise :
+   * `getUserById` est lui aussi un appel réseau awaité dans le chemin de la
+   * requête, et `fetch` n'a pas de délai d'expiration par défaut. Une échéance
+   * unique borne ce que l'API ajoute à la requête d'un joueur, quel que soit
+   * l'appel qui pend.
+   *
+   * L'appel étant best-effort par conception, abandonner est le comportement
+   * correct : on journalise et on rend la main.
+   */
   async enqueueLevelUp(profileId: string, input: LevelUpInput): Promise<void> {
-    if (!this.queue) return;
+    const queue = this.queue;
+    if (!queue) return;
 
+    // Le travail est lancé puis le minuteur armé, sans `await` entre les deux :
+    // l'échéance court donc bien depuis l'entrée dans la méthode.
+    const work = this.produceLevelUp(queue, profileId, input);
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<'expiré'>((resolve) => {
+      timer = setTimeout(() => resolve('expiré'), ENQUEUE_DEADLINE_MS);
+    });
+
+    try {
+      // Un rejet de `work` traverse cette course — une incohérence de payload
+      // doit rester visible. Un rejet arrivant après l'échéance est absorbé
+      // par la course elle-même, il ne remonte pas en `unhandledRejection`.
+      const outcome = await Promise.race([
+        work.then(() => 'produit' as const),
+        deadline,
+      ]);
+
+      if (outcome === 'expiré') {
+        this.logger.warn(
+          `Notification de palier ${input.levelAfter} abandonnée pour ` +
+            `${profileId} : rien produit en ${ENQUEUE_DEADLINE_MS} ms. ` +
+            'Redis est-elle joignable, et REDIS_URL correcte ?',
+        );
+      }
+    } finally {
+      // Sans ça, un appel sain laisse un minuteur en vie deux secondes de plus.
+      clearTimeout(timer);
+    }
+  }
+
+  private async produceLevelUp(
+    queue: NonNullable<NotificationsQueue>,
+    profileId: string,
+    input: LevelUpInput,
+  ): Promise<void> {
     // L'email vit dans auth.users, pas dans profiles. Cet appel n'a lieu qu'à
     // une montée de niveau, jamais sur une séance ordinaire.
     const { data, error } =
@@ -75,7 +136,7 @@ export class NotificationsService {
     // d'un autre service.
     assertLevelUpJob(payload);
 
-    await this.queue.add(LEVEL_UP_JOB_NAME, payload, {
+    await queue.add(LEVEL_UP_JOB_NAME, payload, {
       ...LEVEL_UP_JOB_OPTIONS,
       // Déterministe : deux séances franchissant le même palier ne produisent
       // qu'un email, BullMQ ignorant un jobId déjà connu.

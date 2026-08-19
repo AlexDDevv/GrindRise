@@ -142,3 +142,82 @@ describe('NotificationsService.enqueueLevelUp', () => {
     ).rejects.toThrow(/levelAfter/);
   });
 });
+
+/** Une promesse qui ne se résout jamais : la panne mesurée, pas simulée. */
+function neverSettles<T>(): Promise<T> {
+  return new Promise<T>(() => undefined);
+}
+
+/**
+ * Rend la main dès que `enqueueLevelUp` répond, ou après `ms` de temps simulé.
+ *
+ * Sans ce départage, un appel qui pend ferait simplement expirer Jest au bout
+ * de cinq secondes : on saurait que quelque chose bloque, pas quoi.
+ */
+async function raceAgainstClock(
+  work: Promise<void>,
+  ms: number,
+): Promise<'rendu' | 'bloqué'> {
+  return Promise.race([
+    work.then(() => 'rendu' as const),
+    jest.advanceTimersByTimeAsync(ms).then(() => 'bloqué' as const),
+  ]);
+}
+
+describe('NotificationsService.enqueueLevelUp — garde-temps', () => {
+  // Temps simulé : le garde-temps réel dure deux secondes, la suite n'a pas à
+  // les attendre.
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('rend la main quand queue.add ne répond jamais', async () => {
+    // Le cas d'un REDIS_URL au mot de passe erroné : BullMQ attend que la
+    // connexion soit « prête » avant d'empiler, ioredis retente sans fin, et
+    // `maxRetriesPerRequest` ne borne que les commandes d'une connexion déjà
+    // établie. La requête HTTP du joueur pendait indéfiniment.
+    const queue = { add: jest.fn(() => neverSettles<{ id: string }>()) };
+    const service = new NotificationsService(
+      queue as never,
+      fakeSupabase('joueur@exemple.fr') as never,
+    );
+
+    const outcome = await raceAgainstClock(
+      service.enqueueLevelUp(PROFILE_ID, {
+        username: null,
+        levelBefore: 4,
+        levelAfter: 5,
+      }),
+      30_000,
+    );
+
+    expect(outcome).toBe('rendu');
+    expect(queue.add).toHaveBeenCalled();
+  });
+
+  it("rend la main quand la lecture de l'email ne répond jamais", async () => {
+    // Même classe de panne, un cran plus tôt : `getUserById` est un appel
+    // réseau awaité dans le chemin de la requête, et `fetch` n'a pas de délai
+    // d'expiration par défaut. Le garde-temps couvre donc toute la méthode.
+    const supabase = {
+      client: {
+        auth: {
+          admin: { getUserById: jest.fn(() => neverSettles<unknown>()) },
+        },
+      },
+    };
+    const { queue, calls } = fakeQueue();
+    const service = new NotificationsService(queue as never, supabase as never);
+
+    const outcome = await raceAgainstClock(
+      service.enqueueLevelUp(PROFILE_ID, {
+        username: null,
+        levelBefore: 4,
+        levelAfter: 5,
+      }),
+      30_000,
+    );
+
+    expect(outcome).toBe('rendu');
+    expect(calls).toHaveLength(0);
+  });
+});
