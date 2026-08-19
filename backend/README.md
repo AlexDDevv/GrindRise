@@ -168,12 +168,20 @@ ressaisir une séance que l'anti-triche refuserait comme trop rapprochée.
 
 ## Déploiement CapRover
 
-Le `captain-definition` et le `Dockerfile` sont dans ce dossier : déployer
-depuis `/backend` comme racine de contexte.
+**Tout est dans [`../DEPLOIEMENT.md`](../DEPLOIEMENT.md)** : les deux
+environnements, les variables, les réglages d'app, les pièges. En résumé :
 
 ```bash
-caprover deploy   # depuis backend/
+cd ..                                              # la racine du monorepo
+caprover deploy -n grindrise -a api -b main        # production
+caprover deploy -n grindrise -a api-test -b main   # test
 ```
 
-Variables d'environnement à définir dans l'interface CapRover (App Configs) —
-ne jamais commiter `.env`.
+Depuis la **racine** et non depuis `backend/` : c'est une racine git, donc `-b`
+fonctionne et le commit déployé est enregistré. Le `captain-definition` et le
+`Dockerfile` vivent bien ici, mais les apps portent
+`captainDefinitionRelativeFilePath = ./backend/captain-definition`, ce qui laisse
+le contexte de build sur ce dossier tout en déployant depuis la racine.
+
+Ne jamais commiter `.env` : les variables se saisissent dans l'interface
+CapRover.
