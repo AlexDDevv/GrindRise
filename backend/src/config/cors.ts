@@ -38,6 +38,12 @@ export function buildCorsOptions(
       // Refus silencieux : le middleware CORS n'écrit simplement pas
       // `Access-Control-Allow-Origin`, et c'est le navigateur qui bloque. Lever
       // une erreur ici transformerait un appel non-navigateur légitime en 500.
+      //
+      // Effet de bord du paquet `cors` à connaître : sur un refus il passe la
+      // main au routeur au lieu de répondre lui-même au préflet. Un OPTIONS
+      // d'origine refusée finit donc en 404, pas en 204 sans en-tête. Le
+      // navigateur bloque identiquement — c'est l'absence d'en-tête qui compte
+      // — mais ce 404 se relit facilement comme une route manquante.
       callback(null, allowed.has(origin));
     },
     // Sans cette ligne, le préflet (OPTIONS) est rejoué avant chaque requête

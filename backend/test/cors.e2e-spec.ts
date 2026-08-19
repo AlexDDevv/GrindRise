@@ -55,13 +55,20 @@ describe('CORS (e2e)', () => {
     expect(response.headers['access-control-allow-origin']).toBe(AUTORISEE);
   });
 
-  it('ne renvoie aucune autorisation à une origine inconnue', async () => {
+  it('ne renvoie aucune autorisation au préflet d’une origine inconnue', async () => {
     const response = await request(app.getHttpServer())
       .options('/health')
       .set('Origin', INCONNUE)
       .set('Access-Control-Request-Method', 'GET');
 
     expect(response.headers['access-control-allow-origin']).toBeUndefined();
+
+    // 404, et non 204 : quand la politique refuse une origine, le middleware
+    // `cors` passe la main au routeur au lieu de répondre lui-même au préflet,
+    // et aucune route n'écoute OPTIONS /health. Le navigateur bloque de la même
+    // façon — c'est l'absence d'en-tête qui compte, pas le code. Épinglé ici
+    // pour que ce 404 ne se relise pas plus tard comme une route disparue.
+    expect(response.status).toBe(404);
   });
 
   it('sert quand même la requête d’une origine inconnue — c’est le navigateur qui bloque', async () => {

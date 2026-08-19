@@ -285,6 +285,18 @@ Un refus CORS n'est pas un refus d'accès : l'API répond normalement, sans
 l'en-tête `Access-Control-Allow-Origin`, et c'est le navigateur qui empêche la
 page appelante de lire la réponse. Inutile de chercher un 403 dans les logs.
 
+Un détail qui trompe : le **préflet** d'une origine refusée finit en **404**, pas
+en 204. Le middleware `cors` passe la main au routeur dès qu'il refuse, et
+aucune route n'écoute `OPTIONS`. Ce n'est pas une route disparue, et le blocage
+navigateur est le même — seule compte l'absence d'en-tête.
+
+```bash
+# Origine refusée : pas d'en-tête d'autorisation, et l'appel sans Origin passe.
+curl -si -X OPTIONS -H 'Origin: https://inconnue.exemple.fr' \
+  -H 'Access-Control-Request-Method: GET' https://api.apps.grindrise.fr/health | head -3
+curl -s -o /dev/null -w '%{http_code}\n' https://api.apps.grindrise.fr/health   # 200
+```
+
 #### Désabonnement des emails de palier
 
 L'email de palier n'est pas strictement transactionnel : il célèbre une
