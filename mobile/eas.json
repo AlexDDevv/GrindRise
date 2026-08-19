@@ -1,0 +1,29 @@
+{
+  "cli": {
+    "version": ">= 14.2.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.apps.grindrise.fr",
+        "EXPO_PUBLIC_THEME_GALLERY": "0"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.apps.grindrise.fr",
+        "EXPO_PUBLIC_THEME_GALLERY": "0"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

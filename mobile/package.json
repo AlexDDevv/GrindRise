@@ -35,7 +35,10 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:dev": "pnpm dlx eas-cli build --profile development",
+    "build:preview": "pnpm dlx eas-cli build --profile preview",
+    "build:prod": "pnpm dlx eas-cli build --profile production"
   },
   "private": true
 }
