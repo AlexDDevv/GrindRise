@@ -32,5 +32,15 @@ export function createNotificationsQueue(
   // sur un événement `error` non écouté.
   connection.on('error', () => undefined);
 
-  return new Queue(config.notificationsQueueName, { connection });
+  const queue = new Queue(config.notificationsQueueName, { connection });
+
+  // Celui d'ioredis ci-dessus ne suffit pas : BullMQ émet ses propres `error`,
+  // et sans écouteur il déverse la trace complète de CHAQUE tentative de
+  // connexion sur la sortie d'erreur. Un REDIS_URL pointant un hôte injoignable
+  // — l'hôte interne de CapRover, depuis un poste de développement — noie alors
+  // les logs sous des piles d'appels identiques. L'avertissement du service au
+  // démarrage dit déjà l'essentiel.
+  queue.on('error', () => undefined);
+
+  return queue;
 }
