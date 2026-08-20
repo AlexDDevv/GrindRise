@@ -798,3 +798,345 @@ describe('log_workout_with_xp', () => {
     assert.equal(rows[0].palier, 2);
   });
 });
+
+describe('catalogue d’exercices', () => {
+  let moi;
+  let autrui;
+  let predefini;
+
+  before(async () => {
+    moi = await createUser('catalogue-moi@grindrise.test');
+    autrui = await createUser('catalogue-autrui@grindrise.test');
+
+    const { rows } = await db.query(
+      `insert into public.exercises (name, muscle_group)
+       values ('Développé test', 'pectoraux') returning id`,
+    );
+    predefini = rows[0].id;
+
+    await db.query(
+      `insert into public.exercises (name, muscle_group, created_by)
+       values ('Curl secret', 'biceps', $1)`,
+      [autrui],
+    );
+  });
+
+  test('un exercice prédéfini est lisible par tout utilisateur connecté', async () => {
+    const { rows } = await asUser(
+      moi,
+      `select count(*)::int as n from public.exercises where created_by is null`,
+    );
+    assert.ok(rows[0].n >= 1);
+  });
+
+  test('l’exercice custom d’autrui est invisible', async () => {
+    const { rows } = await asUser(
+      moi,
+      `select count(*)::int as n from public.exercises where name = 'Curl secret'`,
+    );
+    assert.equal(rows[0].n, 0);
+  });
+
+  test('on ne peut pas créer un exercice au nom d’autrui', async () => {
+    const message = await rejects(() =>
+      asUser(
+        moi,
+        `insert into public.exercises (name, muscle_group, created_by)
+         values ('Usurpation', 'dos', '${autrui}')`,
+      ),
+    );
+    assert.match(message, /row-level security/);
+  });
+
+  test('on ne peut pas créer un exercice prédéfini', async () => {
+    // `created_by = null` rendrait l'exercice visible de tous les utilisateurs
+    // de l'app. Le catalogue de base se peuple par migration, pas par un client.
+    const message = await rejects(() =>
+      asUser(
+        moi,
+        `insert into public.exercises (name, muscle_group) values ('Faux prédéfini', 'dos')`,
+      ),
+    );
+    assert.match(message, /row-level security/);
+  });
+
+  test('on ne peut pas promouvoir son exercice en prédéfini', async () => {
+    // Le trou que `with check` referme : sans lui, un `update` suffirait à
+    // publier son exercice auprès de tous.
+    await db.query(
+      `insert into public.exercises (name, muscle_group, created_by)
+       values ('Mon curl', 'biceps', $1)`,
+      [moi],
+    );
+
+    const message = await rejects(() =>
+      asUser(
+        moi,
+        `update public.exercises set created_by = null where name = 'Mon curl'`,
+      ),
+    );
+    assert.match(message, /row-level security/);
+  });
+
+  test('modifier un exercice prédéfini ne touche aucune ligne', async () => {
+    // Pas d'erreur : sans ligne visible en écriture, la RLS filtre en amont et
+    // l'update réussit à vide. « Pas d'erreur » ne vaut jamais « écrit ».
+    const res = await asUser(
+      moi,
+      `update public.exercises set name = 'Détourné' where id = '${predefini}'`,
+    );
+    assert.equal(res.affectedRows ?? 0, 0);
+  });
+});
+
+describe('programmes', () => {
+  let moi;
+  let autrui;
+  let programme;
+  let jour;
+
+  before(async () => {
+    moi = await createUser('programme-moi@grindrise.test');
+    autrui = await createUser('programme-autrui@grindrise.test');
+
+    const p = await db.query(
+      `insert into public.programs (profile_id, sport_id, name)
+       values ($1, 'test', 'Push Pull Legs') returning id`,
+      [moi],
+    );
+    programme = p.rows[0].id;
+
+    const j = await db.query(
+      `insert into public.program_workouts (program_id, name, order_index)
+       values ($1, 'Jour Push', 0) returning id`,
+      [programme],
+    );
+    jour = j.rows[0].id;
+  });
+
+  test('le propriétaire voit son programme et ses jours', async () => {
+    const { rows } = await asUser(
+      moi,
+      `select (select count(*) from public.programs where id = '${programme}')::int as p,
+              (select count(*) from public.program_workouts where id = '${jour}')::int as j`,
+    );
+    assert.equal(rows[0].p, 1);
+    assert.equal(rows[0].j, 1);
+  });
+
+  test('le programme et les jours d’autrui sont invisibles', async () => {
+    const { rows } = await asUser(
+      autrui,
+      `select (select count(*) from public.programs where id = '${programme}')::int as p,
+              (select count(*) from public.program_workouts where id = '${jour}')::int as j`,
+    );
+    assert.equal(rows[0].p, 0);
+    assert.equal(rows[0].j, 0);
+  });
+
+  test('ajouter un jour au programme d’autrui est rejeté', async () => {
+    const message = await rejects(() =>
+      asUser(
+        autrui,
+        `insert into public.program_workouts (program_id, name, order_index)
+         values ('${programme}', 'Intrusion', 9)`,
+      ),
+    );
+    assert.match(message, /row-level security/);
+  });
+
+  test('deux jours ne peuvent pas occuper le même rang', async () => {
+    const message = await rejects(() =>
+      db.query(
+        `insert into public.program_workouts (program_id, name, order_index)
+         values ($1, 'Doublon', 0)`,
+        [programme],
+      ),
+    );
+    assert.match(message, /program_workouts_order_unique/);
+  });
+
+  test('supprimer un programme emporte ses jours', async () => {
+    const p = await db.query(
+      `insert into public.programs (profile_id, sport_id, name)
+       values ($1, 'test', 'Jetable') returning id`,
+      [moi],
+    );
+    await db.query(
+      `insert into public.program_workouts (program_id, name, order_index)
+       values ($1, 'Jour', 0)`,
+      [p.rows[0].id],
+    );
+
+    await db.query(`delete from public.programs where id = $1`, [p.rows[0].id]);
+
+    const { rows } = await db.query(
+      `select count(*)::int as n from public.program_workouts where program_id = $1`,
+      [p.rows[0].id],
+    );
+    assert.equal(rows[0].n, 0);
+  });
+});
+
+describe('séances structurées', () => {
+  let moi;
+  let seance;
+  let exercice;
+  let logue;
+
+  before(async () => {
+    moi = await createUser('seance-structuree@grindrise.test');
+
+    const e = await db.query(
+      `insert into public.exercises (name, muscle_group)
+       values ('Squat test', 'quadriceps') returning id`,
+    );
+    exercice = e.rows[0].id;
+
+    const w = await db.query(
+      `insert into public.workout_logs (profile_id, sport_id) values ($1, 'test') returning id`,
+      [moi],
+    );
+    seance = w.rows[0].id;
+
+    const le = await db.query(
+      `insert into public.logged_exercises (workout_log_id, exercise_id, order_index)
+       values ($1, $2, 0) returning id`,
+      [seance, exercice],
+    );
+    logue = le.rows[0].id;
+
+    await db.query(
+      `insert into public.logged_sets (logged_exercise_id, set_index, type, reps, weight_kg)
+       values ($1, 0, 'reps', 10, 80)`,
+      [logue],
+    );
+  });
+
+  test('une série en répétitions sans répétition est rejetée', async () => {
+    const message = await rejects(() =>
+      db.query(
+        `insert into public.logged_sets (logged_exercise_id, set_index, type)
+         values ($1, 90, 'reps')`,
+        [logue],
+      ),
+    );
+    assert.match(message, /logged_sets_shape_matches_type/);
+  });
+
+  test('une série au temps ne peut pas porter de répétitions', async () => {
+    const message = await rejects(() =>
+      db.query(
+        `insert into public.logged_sets (logged_exercise_id, set_index, type, reps, duration_seconds)
+         values ($1, 91, 'time', 10, 60)`,
+        [logue],
+      ),
+    );
+    assert.match(message, /logged_sets_shape_matches_type/);
+  });
+
+  test('le propriétaire lit ses exercices et ses séries', async () => {
+    const { rows } = await asUser(
+      moi,
+      `select (select count(*) from public.logged_exercises where id = '${logue}')::int as e,
+              (select count(*) from public.logged_sets where logged_exercise_id = '${logue}')::int as s`,
+    );
+    assert.equal(rows[0].e, 1);
+    assert.equal(rows[0].s, 1);
+  });
+
+  test('écrire une série en direct est rejeté — l’API est le seul chemin', async () => {
+    const message = await rejects(() =>
+      asUser(
+        moi,
+        `insert into public.logged_sets (logged_exercise_id, set_index, type, reps)
+         values ('${logue}', 50, 'reps', 10)`,
+      ),
+    );
+    assert.match(message, /row-level security/);
+  });
+
+  test('ajouter un exercice à sa propre séance est rejeté', async () => {
+    const message = await rejects(() =>
+      asUser(
+        moi,
+        `insert into public.logged_exercises (workout_log_id, exercise_id, order_index)
+         values ('${seance}', '${exercice}', 5)`,
+      ),
+    );
+    assert.match(message, /row-level security/);
+  });
+
+  test('supprimer le programme suivi laisse la séance en place', async () => {
+    const p = await db.query(
+      `insert into public.programs (profile_id, sport_id, name)
+       values ($1, 'test', 'Éphémère') returning id`,
+      [moi],
+    );
+    const j = await db.query(
+      `insert into public.program_workouts (program_id, name, order_index)
+       values ($1, 'Jour', 0) returning id`,
+      [p.rows[0].id],
+    );
+    const w = await db.query(
+      `insert into public.workout_logs (profile_id, sport_id, program_workout_id)
+       values ($1, 'test', $2) returning id`,
+      [moi, j.rows[0].id],
+    );
+
+    await db.query(`delete from public.programs where id = $1`, [p.rows[0].id]);
+
+    const { rows } = await db.query(
+      `select program_workout_id from public.workout_logs where id = $1`,
+      [w.rows[0].id],
+    );
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].program_workout_id, null);
+  });
+
+  test('supprimer un exercice encore utilisé est rejeté', async () => {
+    const message = await rejects(() =>
+      db.query(`delete from public.exercises where id = $1`, [exercice]),
+    );
+    assert.match(message, /logged_exercises/);
+  });
+
+  test('supprimer le compte purge tout, exercice custom utilisé compris (RGPD)', async () => {
+    // Le piège des cascades croisées : `workout_logs → logged_exercises` d'un
+    // côté, `exercises.created_by` de l'autre. En `restrict`, cette suppression
+    // échouerait selon l'ordre des triggers. C'est la preuve que `no action`
+    // était le bon choix.
+    const jetable = await createUser('rgpd-muscu@grindrise.test');
+
+    const e = await db.query(
+      `insert into public.exercises (name, muscle_group, created_by)
+       values ('Exercice perso', 'dos', $1) returning id`,
+      [jetable],
+    );
+    const w = await db.query(
+      `insert into public.workout_logs (profile_id, sport_id) values ($1, 'test') returning id`,
+      [jetable],
+    );
+    const le = await db.query(
+      `insert into public.logged_exercises (workout_log_id, exercise_id, order_index)
+       values ($1, $2, 0) returning id`,
+      [w.rows[0].id, e.rows[0].id],
+    );
+    await db.query(
+      `insert into public.logged_sets (logged_exercise_id, set_index, type, reps)
+       values ($1, 0, 'reps', 12)`,
+      [le.rows[0].id],
+    );
+
+    await db.query(`delete from auth.users where id = $1`, [jetable]);
+
+    const { rows } = await db.query(
+      `select
+         (select count(*) from public.exercises where created_by = $1)::int as exercices,
+         (select count(*) from public.logged_sets where logged_exercise_id = $2)::int as series`,
+      [jetable, le.rows[0].id],
+    );
+    assert.equal(rows[0].exercices, 0);
+    assert.equal(rows[0].series, 0);
+  });
+});
