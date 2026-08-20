@@ -106,6 +106,38 @@ export type Database = {
           },
         ]
       }
+      exercises: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          muscle_group: Database["public"]["Enums"]["muscle_group"]
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          muscle_group: Database["public"]["Enums"]["muscle_group"]
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          muscle_group?: Database["public"]["Enums"]["muscle_group"]
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercises_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       level_thresholds: {
         Row: {
           level: number
@@ -126,6 +158,83 @@ export type Database = {
           xp_required?: number
         }
         Relationships: []
+      }
+      logged_exercises: {
+        Row: {
+          exercise_id: string
+          id: string
+          order_index: number
+          workout_log_id: string
+        }
+        Insert: {
+          exercise_id: string
+          id?: string
+          order_index: number
+          workout_log_id: string
+        }
+        Update: {
+          exercise_id?: string
+          id?: string
+          order_index?: number
+          workout_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logged_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logged_exercises_workout_log_id_fkey"
+            columns: ["workout_log_id"]
+            isOneToOne: false
+            referencedRelation: "workout_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      logged_sets: {
+        Row: {
+          duration_seconds: number | null
+          id: string
+          is_bodyweight: boolean
+          logged_exercise_id: string
+          reps: number | null
+          set_index: number
+          type: Database["public"]["Enums"]["set_type"]
+          weight_kg: number | null
+        }
+        Insert: {
+          duration_seconds?: number | null
+          id?: string
+          is_bodyweight?: boolean
+          logged_exercise_id: string
+          reps?: number | null
+          set_index: number
+          type: Database["public"]["Enums"]["set_type"]
+          weight_kg?: number | null
+        }
+        Update: {
+          duration_seconds?: number | null
+          id?: string
+          is_bodyweight?: boolean
+          logged_exercise_id?: string
+          reps?: number | null
+          set_index?: number
+          type?: Database["public"]["Enums"]["set_type"]
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logged_sets_logged_exercise_id_fkey"
+            columns: ["logged_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "logged_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       narrative_beats: {
         Row: {
@@ -202,6 +311,110 @@ export type Database = {
             columns: ["class_id"]
             isOneToOne: false
             referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_workout_exercises: {
+        Row: {
+          exercise_id: string
+          id: string
+          order_index: number
+          program_workout_id: string
+        }
+        Insert: {
+          exercise_id: string
+          id?: string
+          order_index: number
+          program_workout_id: string
+        }
+        Update: {
+          exercise_id?: string
+          id?: string
+          order_index?: number
+          program_workout_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_workout_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_workout_exercises_program_workout_id_fkey"
+            columns: ["program_workout_id"]
+            isOneToOne: false
+            referencedRelation: "program_workouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_workouts: {
+        Row: {
+          id: string
+          name: string
+          order_index: number
+          program_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          order_index: number
+          program_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          order_index?: number
+          program_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_workouts_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      programs: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          profile_id: string
+          sport_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          profile_id: string
+          sport_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          profile_id?: string
+          sport_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "programs_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
             referencedColumns: ["id"]
           },
         ]
@@ -305,6 +518,7 @@ export type Database = {
           metrics: Json
           performed_at: string
           profile_id: string
+          program_workout_id: string | null
           sport_id: string
         }
         Insert: {
@@ -313,6 +527,7 @@ export type Database = {
           metrics?: Json
           performed_at?: string
           profile_id: string
+          program_workout_id?: string | null
           sport_id: string
         }
         Update: {
@@ -321,6 +536,7 @@ export type Database = {
           metrics?: Json
           performed_at?: string
           profile_id?: string
+          program_workout_id?: string | null
           sport_id?: string
         }
         Relationships: [
@@ -329,6 +545,13 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_logs_program_workout_id_fkey"
+            columns: ["program_workout_id"]
+            isOneToOne: false
+            referencedRelation: "program_workouts"
             referencedColumns: ["id"]
           },
           {
@@ -392,11 +615,13 @@ export type Database = {
           p_daily_credited_limit: number
           p_day_end: string
           p_day_start: string
+          p_exercises: Json
           p_last_workout_on: string
           p_metrics: Json
           p_min_gap_minutes: number
           p_performed_at: string
           p_profile_id: string
+          p_program_workout_id: string
           p_sport_id: string
           p_streak_days: number
           p_streak_xp: number
@@ -404,10 +629,32 @@ export type Database = {
         }
         Returns: Json
       }
+      replace_program_workout_exercises: {
+        Args: {
+          p_exercise_ids: string[]
+          p_profile_id: string
+          p_program_workout_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       entitlement_plan: "freemium" | "subscription" | "lifetime"
       entitlement_status: "active" | "in_grace_period" | "cancelled" | "expired"
+      muscle_group:
+        | "pectoraux"
+        | "dos"
+        | "epaules"
+        | "biceps"
+        | "triceps"
+        | "avant_bras"
+        | "quadriceps"
+        | "ischios"
+        | "fessiers"
+        | "mollets"
+        | "abdominaux"
+        | "full_body"
+      set_type: "reps" | "time"
       xp_source_type: "workout" | "streak" | "achievement" | "manual_adjustment"
     }
     CompositeTypes: {
@@ -541,6 +788,21 @@ export const Constants = {
     Enums: {
       entitlement_plan: ["freemium", "subscription", "lifetime"],
       entitlement_status: ["active", "in_grace_period", "cancelled", "expired"],
+      muscle_group: [
+        "pectoraux",
+        "dos",
+        "epaules",
+        "biceps",
+        "triceps",
+        "avant_bras",
+        "quadriceps",
+        "ischios",
+        "fessiers",
+        "mollets",
+        "abdominaux",
+        "full_body",
+      ],
+      set_type: ["reps", "time"],
       xp_source_type: ["workout", "streak", "achievement", "manual_adjustment"],
     },
   },
