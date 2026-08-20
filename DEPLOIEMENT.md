@@ -220,6 +220,28 @@ la racine d'une telle archive — échec bruyant voulu.
 > le dépôt**. Toujours passer `-b <branche>` explicitement — une branche ne peut
 > pas être périmée, un fichier sur disque oui.
 
+### Le CLI exige un terminal, et plus d'un « oui »
+
+`caprover deploy` pose ses questions avec `inquirer` 6, qui referme son
+`readline` dès que l'entrée n'est pas un terminal. Rediriger l'entrée — `<
+/dev/null` comme `printf 'y\n' |` — ne répond donc pas à la question : le
+processus meurt sur `ERR_USE_AFTER_CLOSE: readline was closed`, avant tout envoi.
+Il faut lui allouer un pseudo-terminal :
+
+```bash
+printf 'y\ny\ny\ny\n' | script -qec "caprover deploy -n grindrise -a api -b main" /dev/null
+```
+
+**Le nombre de `y` n'est pas le même partout.** Depuis `grindrise-notifications`
+une seule confirmation suffit ; depuis ce monorepo le CLI en réclame davantage,
+l'avertissement *« No captain-definition was found in main directory »* comptant
+pour une question de plus. En fournir trop est sans effet — les lignes en trop
+sont ignorées — en fournir trop peu fait échouer le déploiement.
+
+Cet échec-là est sans danger : il survient **avant** l'envoi de l'archive, donc
+l'application en place continue de servir. Le vérifier plutôt que le supposer,
+avec un `curl` sur `/health` entre deux tentatives.
+
 ### Variables d'environnement
 
 À saisir dans le dashboard CapRover, **jamais dans le dépôt**. La liste fait foi
