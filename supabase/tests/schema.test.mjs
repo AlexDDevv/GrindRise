@@ -885,7 +885,7 @@ describe('catalogue d’exercices', () => {
       moi,
       `update public.exercises set name = 'Détourné' where id = '${predefini}'`,
     );
-    assert.equal(res.affectedRows ?? 0, 0);
+    assert.equal(res.affectedRows, 0);
   });
 });
 
@@ -894,6 +894,7 @@ describe('programmes', () => {
   let autrui;
   let programme;
   let jour;
+  let exercice;
 
   before(async () => {
     moi = await createUser('programme-moi@grindrise.test');
@@ -912,6 +913,18 @@ describe('programmes', () => {
       [programme],
     );
     jour = j.rows[0].id;
+
+    const e = await db.query(
+      `insert into public.exercises (name, muscle_group)
+       values ('Développé couché test programme', 'pectoraux') returning id`,
+    );
+    exercice = e.rows[0].id;
+
+    await db.query(
+      `insert into public.program_workout_exercises (program_workout_id, exercise_id, order_index)
+       values ($1, $2, 0)`,
+      [jour, exercice],
+    );
   });
 
   test('le propriétaire voit son programme et ses jours', async () => {
@@ -943,6 +956,29 @@ describe('programmes', () => {
       ),
     );
     assert.match(message, /row-level security/);
+  });
+
+  test('ajouter un exercice au jour d’autrui est rejeté', async () => {
+    // Le prédicat de `program_workout_exercises_all_own` remonte par deux
+    // jointures jusqu'au `profile_id` du programme. S'il s'arrêtait à
+    // l'existence du `program_workout` sans vérifier son propriétaire, cet
+    // insert réussirait.
+    const message = await rejects(() =>
+      asUser(
+        autrui,
+        `insert into public.program_workout_exercises (program_workout_id, exercise_id, order_index)
+         values ('${jour}', '${exercice}', 1)`,
+      ),
+    );
+    assert.match(message, /row-level security/);
+  });
+
+  test('les exercices du jour d’autrui sont invisibles', async () => {
+    const { rows } = await asUser(
+      autrui,
+      `select count(*)::int as n from public.program_workout_exercises where program_workout_id = '${jour}'`,
+    );
+    assert.equal(rows[0].n, 0);
   });
 
   test('deux jours ne peuvent pas occuper le même rang', async () => {
@@ -980,12 +1016,14 @@ describe('programmes', () => {
 
 describe('séances structurées', () => {
   let moi;
+  let autrui;
   let seance;
   let exercice;
   let logue;
 
   before(async () => {
     moi = await createUser('seance-structuree@grindrise.test');
+    autrui = await createUser('seance-structuree-autrui@grindrise.test');
 
     const e = await db.query(
       `insert into public.exercises (name, muscle_group)
@@ -1043,6 +1081,20 @@ describe('séances structurées', () => {
     );
     assert.equal(rows[0].e, 1);
     assert.equal(rows[0].s, 1);
+  });
+
+  test('l’exercice et les séries logués d’autrui sont invisibles', async () => {
+    // Le prédicat de `logged_exercises_select_own` remonte jusqu'au
+    // `profile_id` de `workout_logs`, pas seulement jusqu'à l'existence de la
+    // séance. S'il s'arrêtait là, l'historique de tout utilisateur connecté
+    // serait lisible par n'importe quel autre.
+    const { rows } = await asUser(
+      autrui,
+      `select (select count(*) from public.logged_exercises where id = '${logue}')::int as e,
+              (select count(*) from public.logged_sets where logged_exercise_id = '${logue}')::int as s`,
+    );
+    assert.equal(rows[0].e, 0);
+    assert.equal(rows[0].s, 0);
   });
 
   test('écrire une série en direct est rejeté — l’API est le seul chemin', async () => {
