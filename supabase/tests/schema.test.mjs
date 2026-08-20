@@ -1471,3 +1471,93 @@ describe('replace_program_workout_exercises', () => {
     assert.match(message, /jour de programme inaccessible/);
   });
 });
+
+describe('catalogue prédéfini', () => {
+  // Le brief proposait de compter les lignes `created_by is null` en
+  // excluant les fixtures de test par motif de nom (`%test%`, `%RPC%`,
+  // `Exo %`). Ça marche aujourd'hui parce que les fixtures existantes s'y
+  // prêtent, mais c'est fragile : une fixture future au nom neutre (par
+  // exemple « Développé haltère » dans un test qui n'a pas à s'en soucier)
+  // fausserait silencieusement le compte sans faire échouer ce test.
+  //
+  // À la place, on affirme le contenu attendu du catalogue par son nom : les
+  // 36 exercices de la migration 20260820100200 sont une liste connue et
+  // fixe. On vérifie leur présence, leur groupe musculaire, et que ces 36
+  // lignes-là couvrent bien les 12 groupes — sans dépendre d'aucune
+  // convention de nommage des fixtures des autres tests.
+  const catalogue = [
+    ['Développé couché', 'pectoraux'],
+    ['Développé incliné aux haltères', 'pectoraux'],
+    ['Écarté à la poulie', 'pectoraux'],
+    ['Pompes', 'pectoraux'],
+    ['Soulevé de terre', 'dos'],
+    ['Tractions', 'dos'],
+    ['Rowing barre', 'dos'],
+    ['Tirage vertical', 'dos'],
+    ['Rowing haltère un bras', 'dos'],
+    ['Développé militaire', 'epaules'],
+    ['Élévations latérales', 'epaules'],
+    ['Élévations postérieures', 'epaules'],
+    ['Face pull', 'epaules'],
+    ['Curl barre', 'biceps'],
+    ['Curl incliné aux haltères', 'biceps'],
+    ['Curl marteau', 'biceps'],
+    ['Dips', 'triceps'],
+    ['Extension à la poulie haute', 'triceps'],
+    ['Barre au front', 'triceps'],
+    ['Curl poignets', 'avant_bras'],
+    ['Suspension à la barre', 'avant_bras'],
+    ['Squat', 'quadriceps'],
+    ['Presse à cuisses', 'quadriceps'],
+    ['Fentes', 'quadriceps'],
+    ['Leg extension', 'quadriceps'],
+    ['Soulevé de terre jambes tendues', 'ischios'],
+    ['Leg curl', 'ischios'],
+    ['Hip thrust', 'fessiers'],
+    ['Abduction à la poulie', 'fessiers'],
+    ['Mollets debout', 'mollets'],
+    ['Mollets assis', 'mollets'],
+    ['Gainage', 'abdominaux'],
+    ['Relevé de jambes suspendu', 'abdominaux'],
+    ['Crunch à la poulie', 'abdominaux'],
+    ['Épaulé-jeté', 'full_body'],
+    ['Kettlebell swing', 'full_body'],
+  ];
+
+  test('les 36 exercices du catalogue sont seedés, bien classés, et couvrent les 12 groupes musculaires', async () => {
+    const { rows } = await db.query(
+      `select name, muscle_group from public.exercises
+       where created_by is null and name = any($1::text[])`,
+      [catalogue.map(([name]) => name)],
+    );
+
+    assert.equal(
+      rows.length,
+      catalogue.length,
+      `attendu ${catalogue.length} exercices du catalogue, obtenu ${rows.length}`,
+    );
+
+    const parNom = new Map(rows.map((r) => [r.name, r.muscle_group]));
+    for (const [name, groupe] of catalogue) {
+      assert.equal(parNom.get(name), groupe, `exercice manquant ou mal classé : ${name}`);
+    }
+
+    assert.equal(new Set(rows.map((r) => r.muscle_group)).size, 12);
+  });
+
+  test('aucun doublon de nom parmi les prédéfinis', async () => {
+    // L'index unique partiel le garantit déjà ; ce test protège surtout la
+    // rejouabilité de la migration, qui repose sur lui. Il porte sur tous les
+    // prédéfinis (catalogue et fixtures des autres tests confondus), pas
+    // seulement sur le catalogue, puisque c'est bien cette contrainte-là,
+    // globale à la table, que la clause `on conflict` de la migration
+    // suppose.
+    const { rows } = await db.query(`
+      select count(*)::int as doublons from (
+        select lower(name) from public.exercises
+        where created_by is null group by lower(name) having count(*) > 1
+      ) t
+    `);
+    assert.equal(rows[0].doublons, 0);
+  });
+});
