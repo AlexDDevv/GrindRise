@@ -22,11 +22,14 @@
 
 import { addDays, daysBetween, type LocalDay } from './local-day';
 
-/** Métriques saisies par le joueur, forme commune à tous les sports. */
+/**
+ * Métriques saisies par le joueur, forme commune aux sports à log plat.
+ *
+ * La musculation n'est plus de ceux-là : sa séance se logue en exercices et
+ * séries (`workouts/strength-log.ts`), et son XP ne dépend plus de ce qu'elle
+ * contient.
+ */
 export type WorkoutMetrics = {
-  sets?: number;
-  reps?: number;
-  weightKg?: number;
   distanceKm?: number;
   distanceM?: number;
   durationMin?: number;
@@ -61,16 +64,18 @@ export const XP_RULES = {
  * Un barème par sport créerait mécaniquement des sports rentables ; ici, à
  * effort équivalent, tous rapportent la même chose.
  *
+ * La musculation n'y figure pas, et c'est délibéré. Son effort se mesurait au
+ * tonnage — la métrique la plus facile à gonfler de toute l'application — et
+ * une séance de musculation ne vaut donc plus que sa présence : 60 XP. Une
+ * entrée neutralisée à `effort: () => 0` aurait invité à la « réparer » ;
+ * l'absence, elle, se lit. Les gros volumes reviendront par des achievements
+ * ponctuels, jamais par ce barème.
+ *
  * Ces définitions ont un jumeau côté mobile (`mobile/src/features/workouts/
  * sportMetrics.ts`) qui construit le formulaire. Le serveur reste l'autorité :
  * un champ requis manquant est refusé, quoi qu'affiche le client.
  */
 export const SPORT_RULES: Record<string, SportRule> = {
-  musculation: {
-    required: ['sets', 'reps', 'weightKg'],
-    effort: (m) => (m.sets ?? 0) * (m.reps ?? 0) * (m.weightKg ?? 0),
-    effortReference: 5_000,
-  },
   course: {
     required: ['distanceKm'],
     effort: (m) => m.distanceKm ?? 0,

@@ -5,10 +5,37 @@ import {
   isWithinBacklogWindow,
   levelForXp,
   missingMetricsFor,
+  SPORT_RULES,
   streakBonusFor,
   streakLength,
   XP_RULES,
 } from './xp-rules';
+
+/**
+ * Le découplage de la musculation d'avec le tonnage.
+ *
+ * Ces trois tests sont là pour échouer bruyamment si quelqu'un réintroduit un
+ * jour une entrée `musculation` dans le barème : le tonnage est la métrique la
+ * plus falsifiable de l'app, et elle a été retirée exprès. Les gros volumes
+ * seront récompensés par des achievements ponctuels, pas par le barème de base.
+ */
+describe('musculation — découplée du volume', () => {
+  it('n’a plus d’entrée dans le barème', () => {
+    expect(SPORT_RULES.musculation).toBeUndefined();
+  });
+
+  it('vaut la présence seule, quel que soit le volume déclaré', () => {
+    expect(computeWorkoutXp('musculation', {})).toEqual({
+      attendance: XP_RULES.attendance,
+      effort: 0,
+      total: XP_RULES.attendance,
+    });
+  });
+
+  it('n’exige plus aucune métrique — c’est le DTO qui exige des séries', () => {
+    expect(missingMetricsFor('musculation', {})).toEqual([]);
+  });
+});
 
 /**
  * C'est la logique la plus exposée à l'exploitation : ces tests s'intéressent
@@ -18,20 +45,16 @@ import {
 describe('barème d’XP', () => {
   describe('bonus d’effort', () => {
     it('atteint son plafond à la séance de référence', () => {
-      // 4 × 10 × 125 = 5 000, la référence en musculation.
-      expect(
-        computeEffortXp('musculation', { sets: 4, reps: 10, weightKg: 125 }),
-      ).toBe(XP_RULES.effortMax);
+      // 8 km, la référence en course.
+      expect(computeEffortXp('course', { distanceKm: 8 })).toBe(
+        XP_RULES.effortMax,
+      );
     });
 
     it('ne dépasse jamais le plafond, quel que soit le mensonge', () => {
-      const delirant = computeEffortXp('musculation', {
-        sets: 999,
-        reps: 999,
-        weightKg: 999,
-      });
-
-      expect(delirant).toBe(XP_RULES.effortMax);
+      expect(computeEffortXp('course', { distanceKm: 999 })).toBe(
+        XP_RULES.effortMax,
+      );
     });
 
     it('rend le gonflage peu rentable — c’est tout l’intérêt de la concavité', () => {
@@ -73,16 +96,14 @@ describe('barème d’XP', () => {
       expect(parfaite.total).toBe(100);
     });
 
-    it('donne le même maximum à tous les sports', () => {
+    it('donne le même maximum aux sports à barème d’effort', () => {
       const totaux = [
-        computeWorkoutXp('musculation', { sets: 10, reps: 10, weightKg: 100 })
-          .total,
         computeWorkoutXp('course', { distanceKm: 20 }).total,
         computeWorkoutXp('natation', { distanceM: 4_000 }).total,
         computeWorkoutXp('cyclisme', { distanceKm: 80 }).total,
       ];
 
-      // Aucun sport n'est rentable : un barème par sport en créerait
+      // Aucun de ces sports n'est rentable : un barème par sport en créerait
       // mécaniquement, puisque la courbe de niveaux est partagée.
       expect(new Set(totaux)).toEqual(new Set([100]));
     });
@@ -90,10 +111,7 @@ describe('barème d’XP', () => {
 
   describe('métriques requises', () => {
     it('signale les champs manquants du sport', () => {
-      expect(missingMetricsFor('musculation', { sets: 4 })).toEqual([
-        'reps',
-        'weightKg',
-      ]);
+      expect(missingMetricsFor('natation', {})).toEqual(['distanceM']);
     });
 
     it('traite une valeur nulle comme absente', () => {
