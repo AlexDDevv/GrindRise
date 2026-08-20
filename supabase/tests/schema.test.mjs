@@ -388,6 +388,21 @@ describe('RLS vue depuis un client mobile', () => {
     assert.match(message, /permission denied/i);
   });
 
+  test('appeler la RPC de remplacement des exercices d’un jour type est refusé', async () => {
+    // Même trou que pour log_workout_with_xp : sans révocation explicite,
+    // le mobile pourrait réécrire le squelette d'un jour type de n'importe
+    // qui en contournant la RLS via la fonction elle-même.
+    const message = await rejects(() =>
+      asUser(
+        moi,
+        `select public.replace_program_workout_exercises(
+           '${moi}'::uuid, '${moi}'::uuid, '{}'::uuid[]
+         )`,
+      ),
+    );
+    assert.match(message, /permission denied/i);
+  });
+
   test('gonfler sa progression ne touche aucune ligne', async () => {
     // Pas d'erreur ici : sans policy UPDATE, la RLS filtre les lignes en amont
     // et la requête réussit à vide. L'API ne doit donc jamais interpréter
@@ -1197,6 +1212,7 @@ describe('log_workout_with_xp — séance structurée', () => {
   let moi;
   let autrui;
   let squat;
+  let developpe;
   let secretDautrui;
 
   /** Appelle la RPC en service_role, avec des montants d'XP inoffensifs. */
@@ -1222,6 +1238,12 @@ describe('log_workout_with_xp — séance structurée', () => {
     );
     squat = s.rows[0].id;
 
+    const d = await db.query(
+      `insert into public.exercises (name, muscle_group)
+       values ('Développé couché RPC', 'pectoraux') returning id`,
+    );
+    developpe = d.rows[0].id;
+
     const c = await db.query(
       `insert into public.exercises (name, muscle_group, created_by)
        values ('Custom RPC autrui', 'dos', $1) returning id`,
@@ -1231,6 +1253,10 @@ describe('log_workout_with_xp — séance structurée', () => {
   });
 
   test('écrit exercices et séries dans l’ordre du tableau', async () => {
+    // Deux exercices distincts, avec un nombre de séries différent et des
+    // reps discriminantes : avec un seul exercice, la jointure
+    // `le.order_index = (e.ordinality - 1)` serait vraie par accident quelle
+    // que soit sa condition, et ne protégerait rien.
     const result = await loguer({
       profileId: moi,
       exercises: [
@@ -1239,24 +1265,87 @@ describe('log_workout_with_xp — séance structurée', () => {
           sets: [
             { type: 'reps', reps: 10, weight_kg: 80, is_bodyweight: false },
             { type: 'reps', reps: 8, weight_kg: 90, is_bodyweight: false },
+            { type: 'reps', reps: 6, weight_kg: 95, is_bodyweight: false },
           ],
+        },
+        {
+          exercise_id: developpe,
+          sets: [{ type: 'reps', reps: 12, weight_kg: 60, is_bodyweight: false }],
         },
       ],
     });
 
-    assert.equal(result.exercises.length, 1);
-    assert.equal(result.exercises[0].sets.length, 2);
-    // Les rangs sont dérivés de la position, jamais envoyés : l'ordre stocké
-    // ne peut donc pas diverger de l'ordre affiché.
-    assert.equal(Number(result.exercises[0].sets[0].reps), 10);
-    assert.equal(Number(result.exercises[0].sets[1].reps), 8);
+    assert.equal(result.exercises.length, 2);
+    assert.equal(result.exercises[0].exercise_id, squat);
+    assert.equal(result.exercises[0].sets.length, 3);
+    assert.deepEqual(
+      result.exercises[0].sets.map((s) => Number(s.reps)),
+      [10, 8, 6],
+    );
+    assert.equal(result.exercises[1].exercise_id, developpe);
+    assert.equal(result.exercises[1].sets.length, 1);
+    assert.equal(Number(result.exercises[1].sets[0].reps), 12);
 
+    // Reluvérifié directement en base : chaque série doit être rattachée au
+    // bon exercice, et les rangs doivent suivre l'ordre envoyé, pas un ordre
+    // accidentel.
     const { rows } = await db.query(
-      `select order_index from public.logged_exercises
-       where workout_log_id = $1`,
+      `select le.order_index, le.exercise_id, ls.set_index, ls.reps
+       from public.logged_exercises le
+       join public.logged_sets ls on ls.logged_exercise_id = le.id
+       where le.workout_log_id = $1
+       order by le.order_index, ls.set_index`,
       [result.workout.id],
     );
-    assert.deepEqual(rows.map((r) => r.order_index), [0]);
+    assert.deepEqual(
+      rows.map((r) => [r.order_index, r.exercise_id, r.set_index, r.reps]),
+      [
+        [0, squat, 0, 10],
+        [0, squat, 1, 8],
+        [0, squat, 2, 6],
+        [1, developpe, 0, 12],
+      ],
+    );
+  });
+
+  test('un même exercice peut apparaître deux fois dans la séance', async () => {
+    // Cas réel : revenir sur un mouvement en fin de séance. C'est là que la
+    // jointure `logged_exercises.order_index` est la plus fragile, puisque
+    // deux lignes de la table partagent alors le même `exercise_id`.
+    const result = await loguer({
+      profileId: moi,
+      exercises: [
+        { exercise_id: squat, sets: [{ type: 'reps', reps: 5 }] },
+        { exercise_id: developpe, sets: [{ type: 'reps', reps: 20 }] },
+        { exercise_id: squat, sets: [{ type: 'reps', reps: 3 }] },
+      ],
+    });
+
+    assert.deepEqual(
+      result.exercises.map((e) => [e.exercise_id, Number(e.sets[0].reps)]),
+      [
+        [squat, 5],
+        [developpe, 20],
+        [squat, 3],
+      ],
+    );
+
+    const { rows } = await db.query(
+      `select le.order_index, le.exercise_id, ls.reps
+       from public.logged_exercises le
+       join public.logged_sets ls on ls.logged_exercise_id = le.id
+       where le.workout_log_id = $1
+       order by le.order_index`,
+      [result.workout.id],
+    );
+    assert.deepEqual(
+      rows.map((r) => [r.order_index, r.exercise_id, r.reps]),
+      [
+        [0, squat, 5],
+        [1, developpe, 20],
+        [2, squat, 3],
+      ],
+    );
   });
 
   test('accepte une série au temps', async () => {
