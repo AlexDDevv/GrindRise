@@ -379,7 +379,7 @@ describe('RLS vue depuis un client mobile', () => {
       asUser(
         moi,
         `select public.log_workout_with_xp(
-           '${moi}'::uuid, 'test', now(), '{}'::jsonb,
+           '${moi}'::uuid, 'test', now(), '{}'::jsonb, null, null,
            999999, 0, 1, current_date,
            now() - interval '1 hour', now() + interval '1 hour', 2, 30
          )`,
@@ -683,7 +683,7 @@ describe('log_workout_with_xp', () => {
 
     const { rows } = await db.query(
       `select public.log_workout_with_xp(
-         $1::uuid, $2, ${performedAt}, '{"reps": 10}'::jsonb,
+         $1::uuid, $2, ${performedAt}, '{"reps": 10}'::jsonb, null, null,
          $3, $4, $5, current_date,
          now() - interval '1 day', now() + interval '1 day',
          $6, $7
@@ -1190,5 +1190,195 @@ describe('séances structurées', () => {
     );
     assert.equal(rows[0].exercices, 0);
     assert.equal(rows[0].series, 0);
+  });
+});
+
+describe('log_workout_with_xp — séance structurée', () => {
+  let moi;
+  let autrui;
+  let squat;
+  let secretDautrui;
+
+  /** Appelle la RPC en service_role, avec des montants d'XP inoffensifs. */
+  async function loguer({ profileId, exercises = null, programWorkoutId = null }) {
+    const { rows } = await db.query(
+      `select public.log_workout_with_xp(
+         $1::uuid, 'test', now(), '{}'::jsonb, $2::jsonb, $3::uuid,
+         60, 0, 1, current_date,
+         now() - interval '12 hours', now() + interval '12 hours', 99, 0
+       ) as result`,
+      [profileId, exercises ? JSON.stringify(exercises) : null, programWorkoutId],
+    );
+    return rows[0].result;
+  }
+
+  before(async () => {
+    moi = await createUser('rpc-structuree@grindrise.test');
+    autrui = await createUser('rpc-autrui@grindrise.test');
+
+    const s = await db.query(
+      `insert into public.exercises (name, muscle_group)
+       values ('Squat RPC', 'quadriceps') returning id`,
+    );
+    squat = s.rows[0].id;
+
+    const c = await db.query(
+      `insert into public.exercises (name, muscle_group, created_by)
+       values ('Custom RPC autrui', 'dos', $1) returning id`,
+      [autrui],
+    );
+    secretDautrui = c.rows[0].id;
+  });
+
+  test('écrit exercices et séries dans l’ordre du tableau', async () => {
+    const result = await loguer({
+      profileId: moi,
+      exercises: [
+        {
+          exercise_id: squat,
+          sets: [
+            { type: 'reps', reps: 10, weight_kg: 80, is_bodyweight: false },
+            { type: 'reps', reps: 8, weight_kg: 90, is_bodyweight: false },
+          ],
+        },
+      ],
+    });
+
+    assert.equal(result.exercises.length, 1);
+    assert.equal(result.exercises[0].sets.length, 2);
+    // Les rangs sont dérivés de la position, jamais envoyés : l'ordre stocké
+    // ne peut donc pas diverger de l'ordre affiché.
+    assert.equal(Number(result.exercises[0].sets[0].reps), 10);
+    assert.equal(Number(result.exercises[0].sets[1].reps), 8);
+
+    const { rows } = await db.query(
+      `select order_index from public.logged_exercises
+       where workout_log_id = $1`,
+      [result.workout.id],
+    );
+    assert.deepEqual(rows.map((r) => r.order_index), [0]);
+  });
+
+  test('accepte une série au temps', async () => {
+    const result = await loguer({
+      profileId: moi,
+      exercises: [
+        {
+          exercise_id: squat,
+          sets: [{ type: 'time', duration_seconds: 45, is_bodyweight: true }],
+        },
+      ],
+    });
+
+    const serie = result.exercises[0].sets[0];
+    assert.equal(serie.type, 'time');
+    assert.equal(Number(serie.duration_seconds), 45);
+    assert.equal(serie.reps, null);
+    assert.equal(serie.is_bodyweight, true);
+  });
+
+  test('refuse un exercice appartenant à autrui — GR002', async () => {
+    // Sans ce refus, on peut loguer l'exercice custom d'un autre utilisateur,
+    // et donc en déduire l'existence.
+    const message = await rejects(() =>
+      loguer({
+        profileId: moi,
+        exercises: [
+          { exercise_id: secretDautrui, sets: [{ type: 'reps', reps: 5 }] },
+        ],
+      }),
+    );
+    assert.match(message, /exercice inconnu ou inaccessible/);
+  });
+
+  test('refuse un jour de programme appartenant à autrui — GR003', async () => {
+    const p = await db.query(
+      `insert into public.programs (profile_id, sport_id, name)
+       values ($1, 'test', 'Privé') returning id`,
+      [autrui],
+    );
+    const j = await db.query(
+      `insert into public.program_workouts (program_id, name, order_index)
+       values ($1, 'Jour', 0) returning id`,
+      [p.rows[0].id],
+    );
+
+    const message = await rejects(() =>
+      loguer({ profileId: moi, programWorkoutId: j.rows[0].id }),
+    );
+    assert.match(message, /jour de programme inaccessible/);
+  });
+
+  test('une séance sans exercices reste possible — les autres sports', async () => {
+    const result = await loguer({ profileId: moi });
+    assert.deepEqual(result.exercises, []);
+  });
+});
+
+describe('replace_program_workout_exercises', () => {
+  let moi;
+  let jour;
+  let a;
+  let b;
+
+  before(async () => {
+    moi = await createUser('replace-exos@grindrise.test');
+
+    const p = await db.query(
+      `insert into public.programs (profile_id, sport_id, name)
+       values ($1, 'test', 'PPL') returning id`,
+      [moi],
+    );
+    const j = await db.query(
+      `insert into public.program_workouts (program_id, name, order_index)
+       values ($1, 'Push', 0) returning id`,
+      [p.rows[0].id],
+    );
+    jour = j.rows[0].id;
+
+    const ex = await db.query(
+      `insert into public.exercises (name, muscle_group) values
+         ('Exo A', 'pectoraux'), ('Exo B', 'triceps') returning id`,
+    );
+    [a, b] = ex.rows.map((r) => r.id);
+  });
+
+  test('remplace la liste et réattribue les rangs', async () => {
+    await db.query(
+      `select public.replace_program_workout_exercises($1, $2, $3::uuid[])`,
+      [moi, jour, [a, b]],
+    );
+
+    const { rows } = await db.query(
+      `select public.replace_program_workout_exercises($1, $2, $3::uuid[]) as result`,
+      [moi, jour, [b, a]],
+    );
+
+    assert.deepEqual(
+      rows[0].result.map((r) => [r.exercise_id, r.order_index]),
+      [
+        [b, 0],
+        [a, 1],
+      ],
+    );
+  });
+
+  test('vider la liste est un remplacement valide', async () => {
+    const { rows } = await db.query(
+      `select public.replace_program_workout_exercises($1, $2, '{}'::uuid[]) as result`,
+      [moi, jour],
+    );
+    assert.deepEqual(rows[0].result, []);
+  });
+
+  test('refuse le jour d’un autre profil — GR003', async () => {
+    const intrus = await createUser('replace-intrus@grindrise.test');
+    const message = await rejects(() =>
+      db.query(
+        `select public.replace_program_workout_exercises($1, $2, $3::uuid[])`,
+        [intrus, jour, [a]],
+      ),
+    );
+    assert.match(message, /jour de programme inaccessible/);
   });
 });
