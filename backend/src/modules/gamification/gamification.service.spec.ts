@@ -1,3 +1,5 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+
 import { GamificationService } from './gamification.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 
@@ -167,5 +169,150 @@ describe('GamificationService.recomputeProgress', () => {
       streak_days: 0,
       last_workout_on: null,
     });
+  });
+});
+
+describe('GamificationService.awardXpForWorkout', () => {
+  const PROFILE_ID = '3f8b1c2e-6d4a-4f1b-9c7e-2a5d8e0b4f16';
+  const EXERCICE_ID = '9f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f';
+  const JOUR_ID = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+
+  /** Bouchon minimal : un historique vide, et une RPC qui enregistre ses arguments. */
+  function buildService(rpcError: { code?: string; message: string } | null = null) {
+    const rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
+
+    const builder: Record<string, unknown> = {
+      select: () => builder,
+      eq: () => builder,
+      gte: () => builder,
+      order: () => builder,
+      maybeSingle: () =>
+        Promise.resolve({ data: { timezone: 'Europe/Paris' }, error: null }),
+      then: (onFulfilled: (v: { data: unknown; error: null }) => unknown) =>
+        Promise.resolve({ data: [], error: null }).then(onFulfilled),
+    };
+
+    const supabase = {
+      client: {
+        from: () => builder,
+        rpc: (fn: string, args: Record<string, unknown>) => {
+          rpcCalls.push({ fn, args });
+          return Promise.resolve({
+            data: rpcError
+              ? null
+              : {
+                  workout: { id: 'w1' },
+                  progress: { profile_id: PROFILE_ID, level: 2 },
+                  xp_awarded: 60,
+                  capped_reason: null,
+                  exercises: [],
+                },
+            error: rpcError,
+          });
+        },
+      },
+    } as unknown as SupabaseService;
+
+    return { service: new GamificationService(supabase), rpcCalls };
+  }
+
+  /**
+   * L'instant courant, et non une date fixe : la fenêtre d'antériorité est de
+   * sept jours, donc un `performedAt` codé en dur ferait échouer ces tests le
+   * jour où on les relance.
+   */
+  function seance(overrides: Record<string, unknown> = {}) {
+    return {
+      sportId: 'musculation',
+      performedAt: new Date(),
+      metrics: {},
+      timeZone: 'Europe/Paris',
+      levelBefore: 1,
+      ...overrides,
+    };
+  }
+
+  it('transmet les exercices et le jour de programme à la RPC', async () => {
+    // Le payload part en snake_case : c'est la forme que la RPC désassemble,
+    // et la traduction depuis le DTO a déjà eu lieu en amont.
+    const { service, rpcCalls } = buildService();
+
+    await service.awardXpForWorkout(
+      PROFILE_ID,
+      seance({
+        exercises: [
+          {
+            exercise_id: EXERCICE_ID,
+            sets: [
+              {
+                type: 'reps',
+                reps: 10,
+                duration_seconds: null,
+                weight_kg: 80,
+                is_bodyweight: false,
+              },
+            ],
+          },
+        ],
+        programWorkoutId: JOUR_ID,
+      }),
+    );
+
+    const appel = rpcCalls.find((c) => c.fn === 'log_workout_with_xp');
+    expect(appel?.args.p_exercises).toEqual([
+      {
+        exercise_id: EXERCICE_ID,
+        sets: [
+          {
+            type: 'reps',
+            reps: 10,
+            duration_seconds: null,
+            weight_kg: 80,
+            is_bodyweight: false,
+          },
+        ],
+      },
+    ]);
+    expect(appel?.args.p_program_workout_id).toBe(JOUR_ID);
+    // L'identité vient du jeton, jamais du corps.
+    expect(appel?.args.p_profile_id).toBe(PROFILE_ID);
+  });
+
+  it('envoie null quand la séance n’est pas structurée', async () => {
+    const { service, rpcCalls } = buildService();
+
+    await service.awardXpForWorkout(
+      PROFILE_ID,
+      seance({ sportId: 'course', metrics: { distanceKm: 8 } }),
+    );
+
+    const appel = rpcCalls.find((c) => c.fn === 'log_workout_with_xp');
+    expect(appel?.args.p_exercises).toBeNull();
+    expect(appel?.args.p_program_workout_id).toBeNull();
+  });
+
+  it('traduit GR002 en 400 — c’est une faute du client', async () => {
+    const { service } = buildService({
+      code: 'GR002',
+      message: 'exercice inconnu ou inaccessible',
+    });
+
+    await expect(
+      service.awardXpForWorkout(PROFILE_ID, seance({ exercises: [] })),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('traduit GR003 en 404 — un 403 confirmerait que l’identifiant existe', async () => {
+    const { service } = buildService({
+      code: 'GR003',
+      message: 'jour de programme inaccessible',
+    });
+
+    await expect(
+      service.awardXpForWorkout(
+        PROFILE_ID,
+        seance({ exercises: [], programWorkoutId: JOUR_ID }),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

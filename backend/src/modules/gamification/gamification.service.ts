@@ -3,10 +3,12 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 
 import type { Database } from '../../database.types';
 import { SupabaseService } from '../../supabase/supabase.service';
+import type { LoggedExerciseSnapshot } from '../workouts/strength-log';
 import {
   localDayBounds,
   resolveTimeZone,
@@ -49,6 +51,17 @@ const STREAK_HISTORY_DAYS = 400;
  */
 const INVALID_REFERENCE = 'GR001';
 
+/** Exercice inexistant, ou appartenant à un autre profil. Faute du client. */
+const INVALID_EXERCISE = 'GR002';
+
+/**
+ * Ressource appartenant à un autre profil.
+ *
+ * Traduit en 404 et non en 403 : répondre « interdit » confirmerait que
+ * l'identifiant existe, et donnerait de quoi énumérer les programmes d'autrui.
+ */
+const FOREIGN_RESOURCE = 'GR003';
+
 export type XpBreakdown = {
   /** Part de présence : versée dès qu'une séance est créditée. */
   attendance: number;
@@ -70,6 +83,8 @@ export type WorkoutAward = {
   levelBefore: number;
   levelAfter: number;
   cappedReason: CappedReason | null;
+  /** Exercices tels que relus en base : vide pour un sport à log plat. */
+  exercises: LoggedExerciseSnapshot[];
 };
 
 export type WorkoutInput = {
@@ -80,6 +95,12 @@ export type WorkoutInput = {
   timeZone: string | null;
   /** Niveau avant l'enregistrement, pour détecter le passage de palier. */
   levelBefore: number;
+  /**
+   * Séance structurée, déjà traduite en `snake_case` par l'appelant : ce
+   * service ne connaît pas les DTO, il transmet une forme de base.
+   */
+  exercises?: LoggedExerciseSnapshot[] | null;
+  programWorkoutId?: string | null;
 };
 
 type RpcResult = {
@@ -87,6 +108,7 @@ type RpcResult = {
   progress: UserProgress;
   xp_awarded: number;
   capped_reason: CappedReason | null;
+  exercises: LoggedExerciseSnapshot[];
 };
 
 /**
@@ -166,6 +188,13 @@ export class GamificationService {
         p_performed_at: input.performedAt.toISOString(),
         p_metrics:
           input.metrics as Database['public']['Tables']['workout_logs']['Row']['metrics'],
+        p_exercises: (input.exercises ??
+          null) as unknown as Database['public']['Tables']['workout_logs']['Row']['metrics'],
+        // Le type généré déclare `string`, non `string | null` : un écart entre
+        // le générateur et la fonction SQL, qui elle accepte bien un `uuid`
+        // nul (`p_program_workout_id is not null` dans la migration).
+        p_program_workout_id: (input.programWorkoutId ??
+          null) as unknown as string,
         p_workout_xp: workoutXp.total,
         p_streak_xp: streakXp,
         p_streak_days: streak.after,
@@ -182,6 +211,16 @@ export class GamificationService {
         // Faute du client, pas panne du serveur : la fonction l'annonce
         // elle-même par son SQLSTATE, sans qu'on ait à lire un message.
         throw new BadRequestException(`Sport inconnu : ${input.sportId}.`);
+      }
+
+      if (error.code === INVALID_EXERCISE) {
+        throw new BadRequestException(
+          'Un des exercices est inconnu ou ne vous appartient pas.',
+        );
+      }
+
+      if (error.code === FOREIGN_RESOURCE) {
+        throw new NotFoundException('Ce jour de programme est introuvable.');
       }
 
       this.logger.error(
@@ -209,6 +248,7 @@ export class GamificationService {
       levelBefore: input.levelBefore,
       levelAfter: result.progress.level,
       cappedReason: result.capped_reason,
+      exercises: result.exercises ?? [],
     };
   }
 
