@@ -39,6 +39,13 @@ export type MetricField = {
 
 /** Sports sans définition : présence seule, aucun champ. */
 export const SPORT_METRIC_FIELDS: Record<string, MetricField[]> = {
+  // ⚠️ PÉRIMÉ — l'API refuse désormais ce format en 400.
+  //
+  // Une séance de musculation se logue en exercices et séries
+  // (`POST /workouts` avec `exercises`), plus en trois nombres. Cette entrée
+  // est laissée en place le temps que l'écran de log dédié soit construit :
+  // la retirer maintenant afficherait un formulaire vide au lieu d'un
+  // formulaire qui échoue, ce qui serait moins parlant.
   musculation: [
     { key: 'sets', label: 'Séries', short: 'séries', required: true, integer: true, highlight: true, placeholder: '4' },
     { key: 'reps', label: 'Répétitions', short: 'rép.', required: true, integer: true, placeholder: '10' },
