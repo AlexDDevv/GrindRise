@@ -72,8 +72,14 @@ n'importe qui partira sur le mauvais projet :
 ```bash
 pnpm exec supabase link --project-ref wcrpitdjtlqcqmxcrhix   # test
 pnpm db:push
+pnpm db:types
 pnpm exec supabase link --project-ref nycilerxjfwlodpghidp   # production
 ```
+
+`pnpm db:types` se glisse **avant** le relien de la production, jamais après :
+il lit `--linked`, comme `db push`, donc lancé après le relien de la
+production il générerait les types depuis un schéma qui n'a pas encore les
+nouvelles tables.
 
 Passer par `pnpm exec supabase` et non par le script `pnpm db` : pnpm intercepte
 les options longues et peut ne pas transmettre `--project-ref`.
@@ -87,6 +93,18 @@ poussée sur le mauvais projet.
 
 Rien à charger à part : les données de référence vivent dans la migration
 `20260810150500_reference_data.sql`, il n'y a pas de `seed.sql`.
+
+**Avertissement — fenêtre de casse entre migration et déploiement.** La
+migration `20260820100100_strength_rpc.sql` supprime la signature à douze
+arguments de `log_workout_with_xp` avant de créer celle à quatorze, et les
+deux nouveaux paramètres n'ont pas de valeur par défaut. Entre l'application
+des migrations et la mise en ligne du nouveau backend, l'API en place appelle
+encore la fonction avec douze arguments nommés : plus aucun candidat,
+PostgREST répond `PGRST202`, et **l'enregistrement de séance tombe en 500
+pour TOUS les sports**, pas seulement la musculation. Décision assumée, l'app
+n'étant pas distribuée : on prend cette fenêtre plutôt que de la subir, donc
+on migre **puis on déploie l'API immédiatement**, jamais l'inverse, et on ne
+laisse jamais traîner un état intermédiaire.
 
 Contrôler l'état sans la CLI, avec le token de `~/.supabase/access-token` :
 
