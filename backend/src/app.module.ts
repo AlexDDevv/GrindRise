@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { validateEnv } from './config/env.config';
 import { HealthModule } from './health/health.module';
 import { EntitlementsModule } from './modules/entitlements/entitlements.module';
+import { ExercisesModule } from './modules/exercises/exercises.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
 import { NarrativeModule } from './modules/narrative/narrative.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -38,6 +39,7 @@ import { SupabaseModule } from './supabase/supabase.module';
     NarrativeModule,
     NotificationsModule,
     EntitlementsModule,
+    ExercisesModule,
   ],
 })
 export class AppModule {}
