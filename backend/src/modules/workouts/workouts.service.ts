@@ -16,6 +16,12 @@ import { NotificationsService } from '../notifications/notifications.service';
 import type { UserWithProgress } from '../users/users.service';
 import { UsersService } from '../users/users.service';
 import type { CreateWorkoutDto } from './dto/create-workout.dto';
+import {
+  computeStrengthStats,
+  isStructuredLogSport,
+  type LoggedExerciseSnapshot,
+  type StrengthStats,
+} from './strength-log';
 
 /**
  * Réponse de `POST /workouts`.
@@ -50,6 +56,19 @@ export type WorkoutCreated = Omit<UserWithProgress, 'progress'> & {
   narrative: {
     unlocked: NarrativeBeat[];
   };
+  /**
+   * Ce que la séance contenait, pour les sports qui se loguent en exercices.
+   *
+   * Nul pour tout autre sport — le champ existe alors sans valeur plutôt que
+   * d'être absent, pour que le mobile n'ait qu'un contrat à connaître.
+   *
+   * Les statistiques ne sont jamais stockées : elles se recalculent à la
+   * demande, comme `user_progress` se recalcule depuis `xp_events`.
+   */
+  strength: {
+    exercises: LoggedExerciseSnapshot[];
+    stats: StrengthStats;
+  } | null;
 };
 
 /**
@@ -72,6 +91,29 @@ export class WorkoutsService {
   ) {}
 
   /**
+   * Traduit la séance du `camelCase` du client vers la forme de base.
+   *
+   * La traduction a lieu ici et nulle part ailleurs : `GamificationService` ne
+   * connaît pas les DTO, et la RPC désassemble un jsonb en `snake_case`. Les
+   * champs absents deviennent `null` plutôt que d'être omis — c'est ce que la
+   * contrainte `logged_sets_shape_matches_type` attend.
+   */
+  private toSnapshot(
+    exercises: NonNullable<CreateWorkoutDto['exercises']>,
+  ): LoggedExerciseSnapshot[] {
+    return exercises.map((exercise) => ({
+      exercise_id: exercise.exerciseId,
+      sets: exercise.sets.map((set) => ({
+        type: set.type,
+        reps: set.reps ?? null,
+        duration_seconds: set.durationSeconds ?? null,
+        weight_kg: set.weightKg ?? null,
+        is_bodyweight: set.isBodyweight ?? false,
+      })),
+    }));
+  }
+
+  /**
    * Enregistre une séance et renvoie le contexte utilisateur à jour.
    *
    * @param profileId identité issue du JWT vérifié, jamais du corps de requête.
@@ -85,12 +127,16 @@ export class WorkoutsService {
     // a été franchi une fois la progression écrasée.
     const { profile, progress } = await this.users.getProfile(profileId);
 
+    const structured = isStructuredLogSport(input.sportId);
+
     const award = await this.gamification.awardXpForWorkout(profileId, {
       sportId: input.sportId,
       performedAt: new Date(input.performedAt),
       metrics: input.metrics ?? {},
       timeZone: profile.timezone,
       levelBefore: progress?.level ?? 1,
+      exercises: structured ? this.toSnapshot(input.exercises ?? []) : null,
+      programWorkoutId: input.programWorkoutId ?? null,
     });
 
     // Une séance change les deux sources de déclenchement narratif : le compte
@@ -153,6 +199,18 @@ export class WorkoutsService {
         cappedReason: award.cappedReason,
       },
       narrative: { unlocked },
+      // Calculées depuis ce que la RPC a relu en base, pas depuis le corps de
+      // requête : ce qu'on rapporte est ce qui est stocké.
+      //
+      // Aucune source de poids de corps n'est branchée aujourd'hui, donc les
+      // séries au poids du corps sont exclues du tonnage et `tonnagePartial`
+      // le signale. C'est ici que le chantier suivant se branchera.
+      strength: structured
+        ? {
+            exercises: award.exercises,
+            stats: computeStrengthStats(award.exercises),
+          }
+        : null,
     };
   }
 }

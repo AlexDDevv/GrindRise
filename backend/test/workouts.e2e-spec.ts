@@ -21,6 +21,7 @@ import { startJwksServer, type JwksServer } from './jwks-server';
 const KEY_ID = 'test-signing-key';
 const PROFILE_ID = '3f8b1c2e-6d4a-4f1b-9c7e-2a5d8e0b4f16';
 const AUTRUI_ID = '9a1d4e7c-2b3f-4a8d-8e6c-1f0b5d9a3c72';
+const EXERCICE_ID = '9f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f';
 
 const PROFILE_ROW = {
   id: PROFILE_ID,
@@ -163,7 +164,15 @@ const supabaseStub = {
       }
 
       db.lastAwardRpc = { fn, args };
-      return Promise.resolve({ data: db.rpcResult, error: db.rpcError });
+      // `exercises` reflète ce que le corps a réellement transmis (`p_exercises`)
+      // plutôt qu'une valeur figée : un bug qui remonterait l'entrée au lieu du
+      // retour de la base doit rester détectable depuis les tests du service, pas
+      // masqué ici par un bouchon toujours vide.
+      const result =
+        db.rpcResult && typeof db.rpcResult === 'object'
+          ? { exercises: args.p_exercises ?? [], ...db.rpcResult }
+          : db.rpcResult;
+      return Promise.resolve({ data: result, error: db.rpcError });
     },
   },
 };
@@ -362,13 +371,23 @@ describe('POST /workouts (e2e)', () => {
       expect(db.lastAwardRpc).toBeUndefined();
     });
 
-    it('refuse une séance à laquelle il manque une métrique du sport', async () => {
-      const response = await post(
+    it('refuse l’ancien format de musculation', async () => {
+      // La rupture assumée du chantier : un client pas encore mis à jour doit
+      // le savoir tout de suite, pas enregistrer une séance vide.
+      await post(
         validBody({ sportId: 'musculation', metrics: { sets: 4 } }),
       ).expect(400);
+    });
 
-      expect(JSON.stringify(response.body)).toContain('reps');
-      expect(db.lastAwardRpc).toBeUndefined();
+    it('refuse une séance de course portant des exercices', async () => {
+      await post(
+        validBody({
+          sportId: 'course',
+          exercises: [
+            { exerciseId: EXERCICE_ID, sets: [{ type: 'reps', reps: 10 }] },
+          ],
+        }),
+      ).expect(400);
     });
 
     it('transmet le streak recalculé depuis l’historique', async () => {
@@ -402,6 +421,9 @@ describe('POST /workouts (e2e)', () => {
           cappedReason: null,
         },
         narrative: { unlocked: [] },
+        // Le champ existe, nul, plutôt que d'être absent : la course n'est pas
+        // un sport à log structuré.
+        strength: null,
       });
     });
 
@@ -517,6 +539,29 @@ describe('POST /workouts (e2e)', () => {
       );
 
       expect(JSON.stringify(response.body)).toContain('quidditch');
+    });
+
+    it('renvoie les statistiques d’une séance de musculation', async () => {
+      const response = await post(
+        validBody({
+          sportId: 'musculation',
+          // La musculation se logue en `exercises`, jamais en `metrics` : sans
+          // cette annulation, le `metrics` par défaut de `validBody` resterait
+          // et la requête serait rejetée par la cohérence sport/forme.
+          metrics: undefined,
+          exercises: [
+            {
+              exerciseId: EXERCICE_ID,
+              sets: [{ type: 'reps', reps: 10, weightKg: 80 }],
+            },
+          ],
+        }),
+      ).expect(201);
+
+      const body = response.body as WorkoutCreated;
+      expect(body.strength?.stats.totalSets).toBe(1);
+      expect(body.strength?.stats.tonnageKg).toBe(800);
+      expect(body.strength?.stats.tonnagePartial).toBe(false);
     });
   });
 });
