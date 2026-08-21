@@ -9,6 +9,7 @@ import { ExercisesModule } from './modules/exercises/exercises.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
 import { NarrativeModule } from './modules/narrative/narrative.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ProgramsModule } from './modules/programs/programs.module';
 import { UsersModule } from './modules/users/users.module';
 import { WorkoutsModule } from './modules/workouts/workouts.module';
 import { SupabaseModule } from './supabase/supabase.module';
@@ -40,6 +41,7 @@ import { SupabaseModule } from './supabase/supabase.module';
     NotificationsModule,
     EntitlementsModule,
     ExercisesModule,
+    ProgramsModule,
   ],
 })
 export class AppModule {}
