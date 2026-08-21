@@ -157,9 +157,10 @@ mobile : seule la clé `anon` y a sa place (elle est protégée par la RLS).
 Le flux vertical de l'XP fonctionne : logger une séance depuis le mobile fait
 monter le niveau, et il n'existe aucun autre moyen d'en gagner.
 
-- **Base** : 10 tables, RLS deny-by-default, données de référence seedées.
+- **Base** : 16 tables, RLS deny-by-default, données de référence seedées.
 - **Backend** : authentification par JWT, `GET /users/me`, `POST /workouts`,
-  déblocage narratif (`/narrative`).
+  déblocage narratif (`/narrative`), catalogue d'exercices (`/exercises`) et
+  programmes d'entraînement (`/programs`, `/program-workouts`).
 - **Mobile** : onboarding complet (bienvenue, sport, classe, connexion OTP),
   accueil branché sur la progression, enregistrement d'une séance avec annonce
   du palier franchi et des fragments ouverts, profil en lecture seule. Trois
@@ -176,9 +177,16 @@ n'a encore rien à ouvrir.
 ### Comment l'XP est attribuée
 
 Une séance vaut au maximum 100 XP : 60 de présence et jusqu'à 40 d'effort, sur
-une courbe concave. Le barème est commun à tous les sports — seule la référence
-d'effort change — pour qu'aucun ne soit mécaniquement plus rentable qu'un
-autre, la courbe de niveaux étant partagée.
+une courbe concave. Le barème est commun aux sports d'endurance — seule la
+référence d'effort change — pour qu'aucun ne soit mécaniquement plus rentable
+qu'un autre, la courbe de niveaux étant partagée.
+
+**La musculation fait exception depuis la refonte de son logging : elle vaut sa
+présence seule, soit 60 XP.** Son effort se mesurait au tonnage — la métrique
+la plus facile à gonfler de l'application — et l'y laisser revenait à payer le
+mensonge. Le volume sera récompensé par des achievements ponctuels, jamais par
+ce barème. Une séance de musculation se logue en exercices et séries
+(`logged_exercises` / `logged_sets`), plus en trois nombres.
 
 Anti-triche : deux séances créditées par jour, trente minutes minimum entre
 deux, sept jours d'antériorité maximum. Au-delà, la séance est enregistrée mais
