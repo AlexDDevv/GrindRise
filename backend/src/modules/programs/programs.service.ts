@@ -215,6 +215,16 @@ export class ProgramsService {
     return data;
   }
 
+  /**
+   * `renameWorkout` et `removeWorkout` dérogent au principe énoncé plus haut
+   * — le filtre d'appartenance dans la requête d'écriture elle-même — parce
+   * qu'il est inapplicable ici : `program_workouts` n'a pas de colonne
+   * `profile_id`, et PostgREST ne permet pas de filtrer une écriture sur une
+   * colonne de table jointe (seule la lecture avec `!inner` le permet, ce
+   * qu'exploite `assertOwnsWorkout`). Le pousser dans l'écriture aurait
+   * exigé une RPC dédiée ; on vérifie donc avant, puis on écrit filtré sur
+   * le seul `id`.
+   */
   async renameWorkout(
     profileId: string,
     workoutId: string,
@@ -239,6 +249,7 @@ export class ProgramsService {
     return data;
   }
 
+  // Même dérogation que `renameWorkout` ci-dessus : voir son commentaire.
   async removeWorkout(profileId: string, workoutId: string): Promise<void> {
     await this.assertOwnsWorkout(profileId, workoutId);
 

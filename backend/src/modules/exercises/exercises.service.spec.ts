@@ -64,6 +64,15 @@ describe('ExercisesService', () => {
     expect(recherche?.args[1]).toBe('%100\\%\\_curl%');
   });
 
+  it('échappe aussi « * », alias PostgREST du joker « % »', async () => {
+    const { service, calls } = stubSupabase();
+
+    await service.list(PROFILE_ID, { search: '*' });
+
+    const recherche = calls.find((c) => c.method === 'ilike');
+    expect(recherche?.args[1]).toBe('%\\*%');
+  });
+
   it('impose l’identité du jeton comme auteur', async () => {
     const { service, calls } = stubSupabase();
 

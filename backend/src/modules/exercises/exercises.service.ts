@@ -49,8 +49,10 @@ export class ExercisesService {
 
     if (filters.search) {
       // `%` et `_` sont les jokers de LIKE : sans échappement, une recherche
-      // sur « % » ramènerait tout le catalogue.
-      const motif = filters.search.replace(/[%_\\]/g, '\\$&');
+      // sur « % » ramènerait tout le catalogue. `*` aussi : PostgREST le
+      // traite comme un alias de `%` dans ses opérateurs `like`/`ilike`, donc
+      // une recherche sur « * » ramènerait tout le catalogue elle aussi.
+      const motif = filters.search.replace(/[%_*\\]/g, '\\$&');
       query = query.ilike('name', `%${motif}%`);
     }
 

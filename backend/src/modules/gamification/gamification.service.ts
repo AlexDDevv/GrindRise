@@ -189,7 +189,7 @@ export class GamificationService {
         p_metrics:
           input.metrics as Database['public']['Tables']['workout_logs']['Row']['metrics'],
         p_exercises: (input.exercises ??
-          null) as unknown as Database['public']['Tables']['workout_logs']['Row']['metrics'],
+          null) as unknown as Database['public']['Functions']['log_workout_with_xp']['Args']['p_exercises'],
         // Le type généré déclare `string`, non `string | null` : un écart entre
         // le générateur et la fonction SQL, qui elle accepte bien un `uuid`
         // nul (`p_program_workout_id is not null` dans la migration).
