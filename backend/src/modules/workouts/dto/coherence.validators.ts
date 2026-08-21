@@ -84,6 +84,6 @@ export class LoggedSetShapeMatchesType implements ValidatorConstraintInterface {
   }
 
   defaultMessage(): string {
-    return "Une série `reps` porte `reps` seul ; une série `time` porte `durationSeconds` seul.";
+    return 'Une série `reps` porte `reps` seul ; une série `time` porte `durationSeconds` seul.';
   }
 }

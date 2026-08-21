@@ -178,7 +178,9 @@ describe('GamificationService.awardXpForWorkout', () => {
   const JOUR_ID = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
 
   /** Bouchon minimal : un historique vide, et une RPC qui enregistre ses arguments. */
-  function buildService(rpcError: { code?: string; message: string } | null = null) {
+  function buildService(
+    rpcError: { code?: string; message: string } | null = null,
+  ) {
     const rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
 
     const builder: Record<string, unknown> = {

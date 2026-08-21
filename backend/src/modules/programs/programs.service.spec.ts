@@ -7,11 +7,23 @@ const MOI = '3f8b1c2e-6d4a-4f1b-9c7e-2a5d8e0b4f16';
 const JOUR = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
 const EXERCICE = '9f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f';
 
-function stubSupabase(options: { ownedWorkout?: boolean; rpcError?: { code?: string; message: string } | null } = {}) {
+function stubSupabase(
+  options: {
+    ownedWorkout?: boolean;
+    rpcError?: { code?: string; message: string } | null;
+  } = {},
+) {
   const rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
 
   const builder: Record<string, unknown> = {};
-  for (const method of ['select', 'eq', 'insert', 'update', 'delete', 'order']) {
+  for (const method of [
+    'select',
+    'eq',
+    'insert',
+    'update',
+    'delete',
+    'order',
+  ]) {
     builder[method] = () => builder;
   }
   builder.maybeSingle = () =>

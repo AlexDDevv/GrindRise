@@ -84,11 +84,16 @@ describe('statistiques dérivées', () => {
     expect(stats.tonnagePartial).toBe(true);
   });
 
-  it('intègre les séries au poids du corps dès qu\'un poids est fourni', () => {
+  it("intègre les séries au poids du corps dès qu'un poids est fourni", () => {
     // Le point de branchement du chantier suivant : la même entrée, un
     // paramètre de plus, et le total cesse d'être partiel.
     const stats = computeStrengthStats(
-      [{ exercise_id: 'a', sets: [serieBodyweight(10), serieBodyweight(5, 20)] }],
+      [
+        {
+          exercise_id: 'a',
+          sets: [serieBodyweight(10), serieBodyweight(5, 20)],
+        },
+      ],
       { bodyweightKg: 75 },
     );
 

@@ -157,7 +157,9 @@ export function computeStrengthStats(
     ),
     // Resommé depuis les totaux déjà arrondis : le total affiché est alors
     // exactement la somme des lignes affichées, sans écart d'un centime.
-    tonnageKg: roundKg(perExercise.reduce((total, e) => total + e.tonnageKg, 0)),
+    tonnageKg: roundKg(
+      perExercise.reduce((total, e) => total + e.tonnageKg, 0),
+    ),
     tonnagePartial: perExercise.some((e) => e.tonnagePartial),
     perExercise,
   };

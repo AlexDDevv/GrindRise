@@ -57,7 +57,9 @@ describe('CreateWorkoutDto', () => {
       const messages = await erreurs({
         sportId: 'course',
         performedAt: QUAND,
-        exercises: [{ exerciseId: EXERCICE, sets: [{ type: 'reps', reps: 10 }] }],
+        exercises: [
+          { exerciseId: EXERCICE, sets: [{ type: 'reps', reps: 10 }] },
+        ],
       });
 
       expect(messages.join(' ')).toContain('metrics');
@@ -133,7 +135,9 @@ describe('CreateWorkoutDto', () => {
       const messages = await erreurs({
         sportId: 'musculation',
         performedAt: QUAND,
-        exercises: [{ exerciseId: 'pas-un-uuid', sets: [{ type: 'reps', reps: 10 }] }],
+        exercises: [
+          { exerciseId: 'pas-un-uuid', sets: [{ type: 'reps', reps: 10 }] },
+        ],
       });
 
       expect(messages.length).toBeGreaterThan(0);
@@ -162,7 +166,9 @@ describe('CreateWorkoutDto', () => {
     }
 
     it('refuse une série en répétitions sans répétitions', async () => {
-      expect((await serie({ type: 'reps', weightKg: 80 })).length).toBeGreaterThan(0);
+      expect(
+        (await serie({ type: 'reps', weightKg: 80 })).length,
+      ).toBeGreaterThan(0);
     });
 
     it('refuse une série au temps portant des répétitions', async () => {
@@ -174,12 +180,19 @@ describe('CreateWorkoutDto', () => {
     });
 
     it('refuse un type inconnu', async () => {
-      expect((await serie({ type: 'tempo', reps: 10 })).length).toBeGreaterThan(0);
+      expect((await serie({ type: 'tempo', reps: 10 })).length).toBeGreaterThan(
+        0,
+      );
     });
 
     it('accepte une série au poids du corps lestée', async () => {
       expect(
-        await serie({ type: 'reps', reps: 8, weightKg: 20, isBodyweight: true }),
+        await serie({
+          type: 'reps',
+          reps: 8,
+          weightKg: 20,
+          isBodyweight: true,
+        }),
       ).toEqual([]);
     });
   });

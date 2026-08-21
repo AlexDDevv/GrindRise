@@ -81,11 +81,11 @@ describe('ExercisesService', () => {
   });
 
   it('traduit un doublon en 409 plutôt qu’en 500', async () => {
-    const { service, setInsertError } = stubSupabase();
-    setInsertError({ code: '23505', message: 'duplicate key' });
+    const stub = stubSupabase();
+    stub.setInsertError({ code: '23505', message: 'duplicate key' });
 
     await expect(
-      service.create(PROFILE_ID, {
+      stub.service.create(PROFILE_ID, {
         name: 'Curl maison',
         muscleGroup: 'biceps',
       }),

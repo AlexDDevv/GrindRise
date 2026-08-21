@@ -89,7 +89,7 @@ export class ProgramsService {
       }
     }
 
-    return programs as unknown as Program[];
+    return programs;
   }
 
   async create(profileId: string, input: CreateProgramDto): Promise<Program> {
@@ -186,9 +186,7 @@ export class ProgramsService {
 
     if (readError) {
       this.logger.error(`Lecture des jours échouée : ${readError.message}`);
-      throw new InternalServerErrorException(
-        'Impossible d’ajouter ce jour.',
-      );
+      throw new InternalServerErrorException('Impossible d’ajouter ce jour.');
     }
 
     const { data, error } = await this.supabase.client
@@ -233,9 +231,7 @@ export class ProgramsService {
 
     if (error) {
       this.logger.error(`Renommage de jour échoué : ${error.message}`);
-      throw new InternalServerErrorException(
-        'Impossible de renommer ce jour.',
-      );
+      throw new InternalServerErrorException('Impossible de renommer ce jour.');
     }
 
     if (!data) throw new NotFoundException('Ce jour est introuvable.');
@@ -295,9 +291,7 @@ export class ProgramsService {
       this.logger.error(
         `Remplacement des exercices échoué pour ${profileId} : ${error.message}`,
       );
-      throw new InternalServerErrorException(
-        'Impossible de modifier ce jour.',
-      );
+      throw new InternalServerErrorException('Impossible de modifier ce jour.');
     }
 
     return data;
