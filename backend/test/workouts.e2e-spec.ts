@@ -371,6 +371,12 @@ describe('POST /workouts (e2e)', () => {
       expect(db.lastAwardRpc).toBeUndefined();
     });
 
+    it('refuse une séance à laquelle il manque une métrique du sport', async () => {
+      // Contrôle des métriques requises des sports à log plat, prouvé à
+      // travers le service et le pipe — pas seulement en unitaire.
+      await post(validBody({ sportId: 'natation', metrics: {} })).expect(400);
+    });
+
     it('refuse l’ancien format de musculation', async () => {
       // La rupture assumée du chantier : un client pas encore mis à jour doit
       // le savoir tout de suite, pas enregistrer une séance vide.

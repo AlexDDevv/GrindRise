@@ -996,6 +996,17 @@ describe('programmes', () => {
     assert.equal(rows[0].n, 0);
   });
 
+  test('le propriétaire voit les exercices de son jour', async () => {
+    // Symétrique du test précédent : sans lui, une policy qui refuserait tout
+    // à tout le monde ferait passer les deux à l'identique, et personne ne
+    // remarquerait que le propriétaire lui-même ne voit plus rien.
+    const { rows } = await asUser(
+      moi,
+      `select count(*)::int as n from public.program_workout_exercises where program_workout_id = '${jour}'`,
+    );
+    assert.equal(rows[0].n, 1);
+  });
+
   test('deux jours ne peuvent pas occuper le même rang', async () => {
     const message = await rejects(() =>
       db.query(
@@ -1286,7 +1297,7 @@ describe('log_workout_with_xp — séance structurée', () => {
     assert.equal(result.exercises[1].sets.length, 1);
     assert.equal(Number(result.exercises[1].sets[0].reps), 12);
 
-    // Reluvérifié directement en base : chaque série doit être rattachée au
+    // Relu et vérifié directement en base : chaque série doit être rattachée au
     // bon exercice, et les rangs doivent suivre l'ordre envoyé, pas un ordre
     // accidentel.
     const { rows } = await db.query(
