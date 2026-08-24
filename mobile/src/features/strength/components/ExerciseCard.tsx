@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { border, colors, gap, padding, setRow, touchTarget, typography } from '../../../theme';
+import { muscleGroupLabel } from '../muscleGroups';
 import { summarizeExercise } from '../sessionStats';
 import type { SessionExercise } from '../types';
 import { SetRow } from './SetRow';
@@ -58,7 +59,7 @@ export function ExerciseCard({
           <Text style={styles.name} numberOfLines={1}>
             {name}
           </Text>
-          <Text style={typography.mono.meta}>{muscleGroupLabel(muscleGroup)}</Text>
+          <Text style={typography.mono.meta}>{muscleGroupLabel(muscleGroup).toUpperCase()}</Text>
         </View>
 
         <Text style={styles.count}>{sets.length}</Text>
@@ -120,11 +121,6 @@ function lastOf(exercise: SessionExercise) {
   return exercise.sets.length === 0
     ? null
     : exercise.sets[exercise.sets.length - 1];
-}
-
-/** `avant_bras` → `AVANT-BRAS`. L'enum est en `snake_case`, l'écran non. */
-function muscleGroupLabel(group: string): string {
-  return group.replace(/_/g, '-').toUpperCase();
 }
 
 const styles = StyleSheet.create({

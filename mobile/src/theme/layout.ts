@@ -223,3 +223,19 @@ export const setRow = {
   /** Liseré à gauche d'une ligne en cours de saisie. */
   activeBar: 2,
 } as const;
+
+/**
+ * Ligne d'exercice du catalogue — maquette 09, écrans ④ et ⑦.
+ *
+ * Poignée de réordonnancement (trois filets) et étiquette « À MOI » : deux
+ * géométries propres à `ExerciseListItem`, sans équivalent dans le reste de
+ * l'échelle.
+ */
+export const exerciseRow = {
+  /** Un filet de la poignée de glisser. */
+  gripBar: { width: 12, height: 2 },
+  /** Écart entre deux filets de la poignée. */
+  gripGap: 3,
+  /** Rembourrage vertical de l'étiquette « À MOI ». */
+  ownedBadgeY: 2,
+} as const;

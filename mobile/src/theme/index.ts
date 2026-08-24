@@ -37,6 +37,7 @@ export {
   diamond,
   toggle,
   setRow,
+  exerciseRow,
 } from './layout';
 export type { MedallionSize } from './layout';
 
