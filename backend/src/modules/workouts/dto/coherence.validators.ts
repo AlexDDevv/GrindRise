@@ -20,6 +20,33 @@ import {
 import { isStructuredLogSport } from '../strength-log';
 
 /**
+ * `metrics` absent, ou ne portant que `durationMin`.
+ *
+ * La durée est la seule métrique qu'une séance à log structuré peut porter :
+ * elle décrit la séance sans décrire son contenu, que `exercises` porte déjà.
+ * Une distance, elle, ne veut rien dire pour de la musculation, et l'accepter
+ * rouvrirait exactement ce que ce validateur ferme — une séance dont on ne
+ * sait plus laquelle des deux descriptions lire.
+ *
+ * Elle est sans danger pour le barème, et pas par précaution d'écriture :
+ * `SPORT_RULES` n'a pas d'entrée `musculation`, donc `computeEffortXp` retourne
+ * 0 avant même de lire ces métriques. Si cette entrée réapparaissait un jour,
+ * la durée redeviendrait falsifiable — c'est là qu'il faudrait regarder.
+ */
+function metricsCarryOnlyDuration(metrics: unknown): boolean {
+  if (metrics === undefined) return true;
+  if (typeof metrics !== 'object' || metrics === null) return false;
+
+  // `plainToInstance` expose par défaut tous les champs déclarés de
+  // `WorkoutMetricsDto`, même absents du corps envoyé — avec `undefined` pour
+  // valeur. `Object.keys` les compterait donc à tort ; seule une clé dont la
+  // valeur est définie porte une métrique effectivement envoyée.
+  return Object.entries(metrics).every(
+    ([key, value]) => key === 'durationMin' || value === undefined,
+  );
+}
+
+/**
  * Le sport décide de la forme du corps.
  *
  * Musculation : une liste d'exercices, jamais de `metrics`. Les autres sports :
@@ -38,7 +65,7 @@ export class WorkoutPayloadMatchesSport implements ValidatorConstraintInterface 
 
     if (isStructuredLogSport(body.sportId)) {
       return (
-        body.metrics === undefined &&
+        metricsCarryOnlyDuration(body.metrics) &&
         Array.isArray(body.exercises) &&
         body.exercises.length > 0
       );
@@ -51,7 +78,7 @@ export class WorkoutPayloadMatchesSport implements ValidatorConstraintInterface 
     const body = args.object as { sportId?: unknown };
 
     return isStructuredLogSport(body.sportId)
-      ? 'Ce sport se logue en `exercises` (au moins un exercice), et sans `metrics`.'
+      ? 'Ce sport se logue en `exercises` (au moins un exercice), et sans autre métrique que `durationMin`.'
       : 'Ce sport se logue en `metrics` : `exercises` et `programWorkoutId` ne s’y appliquent pas.';
   }
 }

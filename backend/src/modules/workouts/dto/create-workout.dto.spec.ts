@@ -97,6 +97,63 @@ describe('CreateWorkoutDto', () => {
       expect(messages.length).toBeGreaterThan(0);
     });
 
+    it('accepte une durée de séance', async () => {
+      // La durée est la seule métrique qu'une séance structurée peut porter.
+      // Elle est sans effet sur l'XP : `SPORT_RULES` n'a pas d'entrée
+      // `musculation`, donc `computeEffortXp` retourne 0 sans lire `metrics`.
+      expect(
+        await erreurs({
+          sportId: 'musculation',
+          performedAt: QUAND,
+          metrics: { durationMin: 52 },
+          exercises: [
+            { exerciseId: EXERCICE, sets: [{ type: 'reps', reps: 10 }] },
+          ],
+        }),
+      ).toEqual([]);
+    });
+
+    it('accepte une séance sans aucune métrique', async () => {
+      // La durée reste facultative : `metrics` absent doit rester valide.
+      expect(
+        await erreurs({
+          sportId: 'musculation',
+          performedAt: QUAND,
+          exercises: [
+            { exerciseId: EXERCICE, sets: [{ type: 'reps', reps: 10 }] },
+          ],
+        }),
+      ).toEqual([]);
+    });
+
+    it('refuse une distance, qui ne décrit pas une séance de musculation', async () => {
+      const messages = await erreurs({
+        sportId: 'musculation',
+        performedAt: QUAND,
+        metrics: { distanceKm: 8 },
+        exercises: [
+          { exerciseId: EXERCICE, sets: [{ type: 'reps', reps: 10 }] },
+        ],
+      });
+
+      expect(messages.length).toBeGreaterThan(0);
+    });
+
+    it('refuse une durée accompagnée d’une distance', async () => {
+      // Le point du validateur : laisser passer `durationMin` ne doit pas
+      // ouvrir la porte au reste de `metrics`.
+      const messages = await erreurs({
+        sportId: 'musculation',
+        performedAt: QUAND,
+        metrics: { durationMin: 52, distanceKm: 8 },
+        exercises: [
+          { exerciseId: EXERCICE, sets: [{ type: 'reps', reps: 10 }] },
+        ],
+      });
+
+      expect(messages.length).toBeGreaterThan(0);
+    });
+
     it('refuse une séance sans aucun exercice', async () => {
       const messages = await erreurs({
         sportId: 'musculation',
