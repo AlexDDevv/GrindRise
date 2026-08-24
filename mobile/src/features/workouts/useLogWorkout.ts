@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { apiRequest, ApiError } from '../../lib/api';
-import type { Database } from '../../lib/database.types';
-import { useUserStore, type Profile, type Progress } from '../../store/userStore';
-import type { NarrativeBeat } from '../narrative/narrativeState';
+import { useUserStore } from '../../store/userStore';
 import { useOnboardingStore } from '../onboarding/onboardingStore';
 import { useSports } from '../sports/useSports';
 import {
@@ -11,41 +9,9 @@ import {
   missingRequiredFields,
   parseMetrics,
 } from './sportMetrics';
+import type { WorkoutCreated, WorkoutResult } from './workoutApi';
 
-export type WorkoutLog = Database['public']['Tables']['workout_logs']['Row'];
-
-/** Ce que `POST /workouts` renvoie — la forme de `GET /users/me`, plus le gain. */
-type WorkoutCreated = {
-  profile: Profile;
-  progress: Progress;
-  award: {
-    workout: WorkoutLog;
-    xpAwarded: number;
-    breakdown: { attendance: number; effort: number; streak: number };
-    levelBefore: number;
-    levelAfter: number;
-    leveledUp: boolean;
-    cappedReason: 'daily_limit' | 'too_close' | null;
-  };
-  /**
-   * Fragments que la séance vient d'ouvrir. Vide si rien n'a été franchi — mais
-   * aussi si la synchronisation a échoué côté serveur, où elle est best-effort.
-   * L'absence n'est donc pas une preuve, seulement une occasion manquée.
-   */
-  narrative: { unlocked: NarrativeBeat[] };
-};
-
-/**
- * Ce que l'écran affiche après une séance enregistrée.
- *
- * Les beats sont gardés entiers et non comptés : la modale les annonce par leur
- * titre. Leur texte, en revanche, n'est pas montré ici — sa lecture appartient
- * au codex, seul endroit qui la date (`read_at`). Un fragment lu hors de lui se
- * représenterait à la prochaine ouverture.
- */
-export type WorkoutResult = WorkoutCreated['award'] & {
-  unlocked: NarrativeBeat[];
-};
+export type { WorkoutLog, WorkoutResult } from './workoutApi';
 
 /**
  * Enregistre une séance via l'API.
@@ -126,7 +92,11 @@ export function useLogWorkout() {
       // La progression renvoyée fait autorité : elle sort de la transaction qui
       // vient d'écrire l'XP, alors que le store porte l'état d'avant.
       applyProgress(created.progress);
-      setResult({ ...created.award, unlocked: created.narrative.unlocked });
+      setResult({
+        ...created.award,
+        unlocked: created.narrative.unlocked,
+        strength: created.strength,
+      });
     } catch (error) {
       const message =
         error instanceof ApiError
