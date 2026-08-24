@@ -18,7 +18,10 @@ import {
 } from '../../../theme';
 import { useLevelCurve } from '../../progression/useLevelCurve';
 import { useSports } from '../../sports/useSports';
-import { summarizeWorkout } from '../../workouts/workoutSummary';
+import {
+  summarizeStrengthWorkout,
+  summarizeWorkout,
+} from '../../workouts/workoutSummary';
 import { streakStatus } from '../streak';
 import { useRecentWorkouts, type RecentWorkout } from '../useRecentWorkouts';
 
@@ -139,13 +142,20 @@ function RecentWorkoutCard({
   /** Nul le temps que le catalogue arrive : l'identifiant reste lisible. */
   sportName?: string;
 }) {
-  const { log, xpGain } = workout;
+  const { log, xpGain, strength } = workout;
 
   return (
     <WorkoutCard
       variant="compact"
       sport={sportName ?? log.sport_id}
-      summary={summarizeWorkout(log.sport_id, log.metrics, log.performed_at)}
+      summary={
+        // Une séance à log structuré ne se résume pas par `metrics` : sa
+        // description est dans `logged_exercises`, et `SPORT_METRIC_FIELDS` n'a
+        // plus d'entrée pour elle.
+        strength === null
+          ? summarizeWorkout(log.sport_id, log.metrics, log.performed_at)
+          : summarizeStrengthWorkout(strength, log.performed_at)
+      }
       xpGain={xpGain}
     />
   );

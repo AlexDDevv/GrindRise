@@ -100,3 +100,41 @@ export function summarizeWorkout(
 
   return [formatDayLabel(performedAt, now), ...parts].join(' · ');
 }
+
+/** Ce qu'il faut d'une séance structurée pour la résumer en une ligne. */
+export type StrengthSummarySource = {
+  exerciseCount: number;
+  setCount: number;
+};
+
+/**
+ * Résumé d'une séance de musculation : « Hier · 3 exercices · 12 séries ».
+ *
+ * Une fonction à part et non une branche de `summarizeWorkout` : celle-ci part
+ * de `SPORT_METRIC_FIELDS`, dont la musculation ne fait plus partie. Elle ne
+ * passe pas non plus par `sessionStats.ts`, qui opère sur le brouillon local en
+ * `camelCase` alors qu'on lit ici des lignes Postgres — et le résumé n'a de
+ * toute façon aucun tonnage à calculer.
+ *
+ * Deux chiffres et pas trois : la carte compacte les pose en légende de 12
+ * points sur une seule ligne, qui doit tenir à côté du gain d'XP. La durée se
+ * lit sur la carte détaillée.
+ *
+ * Une séance sans exercice se réduit à son jour. C'est le cas des séances
+ * antérieures à la refonte : elles portent l'ancien jsonb et aucune ligne dans
+ * `logged_exercises`, et leurs trois nombres ne décrivaient rien qu'on veuille
+ * réafficher.
+ */
+export function summarizeStrengthWorkout(
+  source: StrengthSummarySource,
+  performedAt: string,
+  now?: Date,
+): string {
+  const jour = formatDayLabel(performedAt, now);
+  if (source.exerciseCount === 0) return jour;
+
+  const exercices = `${source.exerciseCount} exercice${source.exerciseCount > 1 ? 's' : ''}`;
+  const series = `${source.setCount} série${source.setCount > 1 ? 's' : ''}`;
+
+  return [jour, exercices, series].join(' · ');
+}

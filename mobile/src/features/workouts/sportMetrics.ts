@@ -4,6 +4,12 @@
  * `workout_logs.metrics` est un `jsonb` : sa forme dépend du sport, et c'est ce
  * fichier qui décide de ce que l'écran affiche.
  *
+ * **La musculation n'y figure plus.** Sa séance se logue en exercices et séries
+ * (`features/strength/`), et son `metrics` ne porte qu'une durée, qui n'est pas
+ * un champ de ce formulaire. Une entrée neutralisée aurait invité à la
+ * « réparer » ; l'absence, elle, se lit — même raisonnement que celui qui a fait
+ * retirer `musculation` de `SPORT_RULES` côté serveur.
+ *
  * Jumeau de `SPORT_RULES` côté backend (`backend/src/modules/gamification/
  * xp-rules.ts`), volontairement dupliqué : il n'existe pas de package partagé
  * dans ce monorepo, et en créer un pour six lignes coûterait plus cher qu'il ne
@@ -39,18 +45,6 @@ export type MetricField = {
 
 /** Sports sans définition : présence seule, aucun champ. */
 export const SPORT_METRIC_FIELDS: Record<string, MetricField[]> = {
-  // ⚠️ PÉRIMÉ — l'API refuse désormais ce format en 400.
-  //
-  // Une séance de musculation se logue en exercices et séries
-  // (`POST /workouts` avec `exercises`), plus en trois nombres. Cette entrée
-  // est laissée en place le temps que l'écran de log dédié soit construit :
-  // la retirer maintenant afficherait un formulaire vide au lieu d'un
-  // formulaire qui échoue, ce qui serait moins parlant.
-  musculation: [
-    { key: 'sets', label: 'Séries', short: 'séries', required: true, integer: true, highlight: true, placeholder: '4' },
-    { key: 'reps', label: 'Répétitions', short: 'rép.', required: true, integer: true, placeholder: '10' },
-    { key: 'weightKg', label: 'Charge', unit: 'kg', required: true, highlight: true, placeholder: '80' },
-  ],
   course: [
     { key: 'distanceKm', label: 'Distance', unit: 'km', required: true, placeholder: '8' },
     { key: 'durationMin', label: 'Durée', unit: 'min', required: false, integer: true, placeholder: '45' },
