@@ -3,8 +3,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { DashboardScreen } from '../features/dashboard/screens/DashboardScreen';
 import { ProfileScreen } from '../features/profile/screens/ProfileScreen';
-import { LogWorkoutScreen } from '../features/workouts/screens/LogWorkoutScreen';
 import { border, colors, fontFamily, typography } from '../theme';
+import { LogNavigator } from './LogNavigator';
 import type { MainTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -12,10 +12,12 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 /**
  * Les trois onglets de l'app.
  *
- * « Log » ouvre le formulaire directement, sans écran d'accueil intermédiaire :
- * logger une séance est l'action que le joueur vient faire, et l'historique
- * complet se lit au profil. Le codex n'est pas encore là, il viendra dans une
- * étape séparée.
+ * « Log » ouvre `LogNavigator`, dont le premier écran est le formulaire, sans
+ * écran d'accueil intermédiaire : logger une séance est l'action que le joueur
+ * vient faire, et l'historique complet se lit au profil. La pile s'ouvre parce
+ * que la musculation ne se logue plus dans ce même formulaire plat — elle
+ * bifurque vers un parcours en exercices et séries. Le codex n'est pas encore
+ * là, il viendra dans une étape séparée.
  *
  * Les en-têtes sont désactivés partout : chaque écran porte son titre en Grenze,
  * et une barre de navigation par-dessus ferait doublon.
@@ -54,7 +56,7 @@ export function MainTabs() {
       />
       <Tab.Screen
         name="Log"
-        component={LogWorkoutScreen}
+        component={LogNavigator}
         options={{
           title: 'SÉANCE',
           tabBarIcon: ({ color, size }) => <Ionicons name="barbell" color={color} size={size} />,

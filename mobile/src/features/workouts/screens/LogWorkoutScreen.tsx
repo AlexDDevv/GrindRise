@@ -1,3 +1,5 @@
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ErrorNotice, LoadingState } from '../../../components/Feedback';
@@ -5,11 +7,14 @@ import { Screen } from '../../../components/Screen';
 import { TextField } from '../../../components/TextField';
 import { Button, WorkoutCard } from '../../../components/ui';
 import { formatDateTime, formatNumber } from '../../../lib/format';
+import type { LogStackParamList } from '../../../navigation/types';
 import { useUserStore } from '../../../store/userStore';
 import { spacing, typography } from '../../../theme';
 import { useLevelCurve } from '../../progression/useLevelCurve';
 import { SportPicker } from '../../sports/SportPicker';
 import type { Sport } from '../../sports/useSports';
+import { STRENGTH_SPORT_ID } from '../../strength/toWorkoutPayload';
+import { useStrengthSessionStore } from '../../strength/strengthSessionStore';
 import type { MetricField } from '../sportMetrics';
 import { useLogWorkout, type WorkoutResult } from '../useLogWorkout';
 import { WorkoutCelebration } from '../WorkoutCelebration';
@@ -27,8 +32,18 @@ import { readMetrics } from '../workoutSummary';
  * L'écran a deux états et pas deux routes : le formulaire, puis la confirmation.
  * Une route séparée pour la confirmation permettrait d'y revenir par le retour
  * arrière, et de relire un gain déjà encaissé comme s'il venait d'arriver.
+ *
+ * **La musculation bifurque, elle ne se saisit plus ici.** Depuis la refonte du
+ * serveur, une séance de musculation se logue en exercices et en séries, sur
+ * `StrengthSession`. Choisir « musculation » dans le `SportPicker` ne pousse
+ * pas cet écran pour autant : la section des métriques devient une invitation
+ * explicite, et c'est un appui sur son bouton qui ouvre la pile. Une navigation
+ * automatique au choix du sport serait désorientante au retour sur l'onglet.
  */
 export function LogWorkoutScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<LogStackParamList>>();
+  const startSession = useStrengthSessionStore((s) => s.start);
+
   const {
     sports,
     loadError,
@@ -46,6 +61,8 @@ export function LogWorkoutScreen() {
     reset,
   } = useLogWorkout();
 
+  const isStrength = sportId === STRENGTH_SPORT_ID;
+
   if (result) {
     return <WorkoutConfirmation result={result} onDismiss={reset} sports={sports} />;
   }
@@ -56,16 +73,21 @@ export function LogWorkoutScreen() {
       title="Ce que tu viens de faire"
       avoidKeyboard
       footer={
-        <>
-          {submitError ? <ErrorNotice message={submitError} /> : null}
+        // Le bouton d'enregistrement du formulaire plat n'a pas de sens pour la
+        // musculation : elle s'enregistre à la fin de la séance structurée, pas
+        // ici.
+        isStrength ? null : (
+          <>
+            {submitError ? <ErrorNotice message={submitError} /> : null}
 
-          <Button
-            label={isSubmitting ? 'Enregistrement…' : 'Enregistrer'}
-            size="hero"
-            onPress={() => void submit()}
-            disabled={!canSubmit}
-          />
-        </>
+            <Button
+              label={isSubmitting ? 'Enregistrement…' : 'Enregistrer'}
+              size="hero"
+              onPress={() => void submit()}
+              disabled={!canSubmit}
+            />
+          </>
+        )
       }
     >
       {loadError ? <ErrorNotice message={loadError} onRetry={reloadSports} /> : null}
@@ -79,24 +101,45 @@ export function LogWorkoutScreen() {
         </View>
       ) : null}
 
-      <View style={styles.section}>
-        <Text style={typography.mono.label}>MÉTRIQUES</Text>
-
-        {fields.length > 0 ? (
-          fields.map((field) => (
-            <MetricInput
-              key={field.key}
-              field={field}
-              value={values[field.key] ?? ''}
-              onChange={(text) => setValue(field.key, text)}
-            />
-          ))
-        ) : (
+      {isStrength ? (
+        <View style={styles.section}>
+          <Text style={typography.mono.label}>SÉANCE STRUCTURÉE</Text>
           <Text style={typography.sans.bodySmall}>
-            Ce sport ne demande aucune métrique : la présence suffit.
+            La musculation se logue en exercices et en séries. Une séance vaut
+            60 XP, quel que soit le volume.
           </Text>
-        )}
-      </View>
+          <Button
+            label="Commencer la séance"
+            size="hero"
+            onPress={() => {
+              // Le chrono part ici et non à l'ajout du premier exercice : la
+              // séance a commencé quand on ouvre l'écran, pas quand on trouve
+              // son premier mouvement dans le catalogue.
+              startSession();
+              navigation.navigate('StrengthSession');
+            }}
+          />
+        </View>
+      ) : (
+        <View style={styles.section}>
+          <Text style={typography.mono.label}>MÉTRIQUES</Text>
+
+          {fields.length > 0 ? (
+            fields.map((field) => (
+              <MetricInput
+                key={field.key}
+                field={field}
+                value={values[field.key] ?? ''}
+                onChange={(text) => setValue(field.key, text)}
+              />
+            ))
+          ) : (
+            <Text style={typography.sans.bodySmall}>
+              Ce sport ne demande aucune métrique : la présence suffit.
+            </Text>
+          )}
+        </View>
+      )}
     </Screen>
   );
 }
