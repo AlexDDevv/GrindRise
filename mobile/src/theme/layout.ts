@@ -188,6 +188,19 @@ export const diamond = {
 } as const;
 
 /**
+ * Interrupteur — maquette 09, composant 07.
+ *
+ * Le DA dessine 42 × 22 avec un curseur de 18 ; l'échelle retient 44 × 24 et un
+ * curseur de 20, les crans usuels les plus proches. L'arithmétique reste exacte
+ * — `24 − 2 × 2 = 20` — et le composant n'a plus aucune dimension en propre.
+ */
+export const toggle = {
+  track: { width: 44, height: 24 },
+  thumb: 20,
+  inset: 2,
+} as const;
+
+/**
  * Ligne de série — maquette 09, composant 06.
  *
  * La grille est fixe à trois colonnes (rang, comptage, charge) pour que la

@@ -5,6 +5,7 @@ import {
   colors,
   padding,
   radius,
+  toggle,
   touchTarget,
   typography,
 } from '../../theme';
@@ -15,7 +16,8 @@ import {
  * Écrit à la main plutôt que d'habiller le `Switch` du cœur de React Native :
  * celui-ci n'expose que `trackColor` et `thumbColor`, pas ses dimensions, et la
  * pastille du DA fait 42 × 22 avec un curseur carré-arrondi. Un contrôle
- * natif redimensionné de force serait pire que celui-ci.
+ * natif redimensionné de force serait pire que celui-ci. Les dimensions
+ * viennent du jeton `toggle` : le composant n'a aucune géométrie en propre.
  *
  * La pastille ronde est la **seule exception** au « aucun border-radius » du
  * §04, et le DA la nomme explicitement comme telle.
@@ -23,10 +25,6 @@ import {
  * L'or est ici un aplat, contrairement au segment actif : enclencher un
  * interrupteur est une action, et le §02 réserve l'aplat d'or aux actions.
  */
-
-const TRACK = { width: 42, height: 22 } as const;
-const THUMB = 18;
-const INSET = 2;
 
 type Props = {
   label: string;
@@ -64,10 +62,10 @@ const styles = StyleSheet.create({
     borderColor: colors.line.default,
   },
   track: {
-    width: TRACK.width,
-    height: TRACK.height,
+    width: toggle.track.width,
+    height: toggle.track.height,
     borderRadius: radius.pill,
-    padding: INSET,
+    padding: toggle.inset,
     justifyContent: 'center',
   },
   trackOn: {
@@ -81,8 +79,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   thumb: {
-    width: THUMB,
-    height: THUMB,
+    width: toggle.thumb,
+    height: toggle.thumb,
     borderRadius: radius.pill,
   },
   thumbOn: {
