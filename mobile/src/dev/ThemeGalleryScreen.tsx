@@ -2,7 +2,15 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, LevelMedallion, LevelUpModal, WorkoutCard, XpBar } from '../components/ui';
+import {
+  Button,
+  LevelMedallion,
+  LevelUpModal,
+  SegmentedControl,
+  Switch,
+  WorkoutCard,
+  XpBar,
+} from '../components/ui';
 import { colors, spacing, typography } from '../theme';
 
 /**
@@ -42,6 +50,8 @@ function Variant({ label, children }: { label: string; children: React.ReactNode
 
 export function ThemeGalleryScreen() {
   const [modal, setModal] = useState<'levelUp' | 'fragment' | null>(null);
+  const [setType, setSetType] = useState<'reps' | 'time'>('reps');
+  const [bodyweight, setBodyweight] = useState(false);
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -156,6 +166,27 @@ export function ThemeGalleryScreen() {
               label="Ouvrir le fragment"
               variant="secondary"
               onPress={() => setModal('fragment')}
+            />
+          </Variant>
+        </Section>
+
+        <Section number="06" title="Contrôles de saisie">
+          <Variant label="Sélecteur répétitions / temps">
+            <SegmentedControl
+              options={[
+                { value: 'reps', label: 'Répétitions' },
+                { value: 'time', label: 'Temps' },
+              ]}
+              value={setType}
+              onChange={setSetType}
+              accessibilityLabel="Type de série"
+            />
+          </Variant>
+          <Variant label="Interrupteur">
+            <Switch
+              label="Au poids du corps"
+              value={bodyweight}
+              onValueChange={setBodyweight}
             />
           </Variant>
         </Section>

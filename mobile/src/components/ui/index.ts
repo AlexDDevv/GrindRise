@@ -9,6 +9,8 @@ export { LevelMedallion } from './LevelMedallion';
 export { WorkoutCard } from './WorkoutCard';
 export type { WorkoutMetric } from './WorkoutCard';
 export { LevelUpModal } from './LevelUpModal';
+export { SegmentedControl } from './SegmentedControl';
+export { Switch } from './Switch';
 
 export { Hexagon } from './Hexagon';
 export { CutCornerSurface } from './CutCornerSurface';

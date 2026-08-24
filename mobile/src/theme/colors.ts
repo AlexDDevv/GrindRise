@@ -32,6 +32,7 @@ const palette = {
   gold400: '#d69c3e', // état pressé du bouton primaire — Composants detail 01
   gold800: '#5d4116', // fin du dégradé de cadre hexagonal — Composants detail 03
   goldMuted: '#4a3a20', // bouton primaire désactivé — Composants detail 01
+  gold100: '#eee1cc', // nom d'exercice sur en-tête teinté — maquette 09, comp. 08
 
   // §02 — accent narratif
   rust500: '#8e2f27', // codex, palier franchi
@@ -172,6 +173,55 @@ export const colors = {
     metricUnit: ink.secondary,
     xpGain: palette.gold300,
     footer: ink.secondary,
+  },
+
+  /**
+   * Contrôles segmentés et interrupteurs — maquette 09, composant 07.
+   *
+   * Le DA ne les dessinait pas : ce sont les deux contrôles que le parcours de
+   * saisie d'une série exige. Ils suivent ses règles — creux pour une piste,
+   * or en voile et jamais en aplat pour un état actif, pastille ronde comme
+   * seule exception au « aucun radius » du §04.
+   */
+  control: {
+    track: palette.ember950,
+    trackBorder: line.control,
+    /** Segment actif : un voile d'or et un liseré, jamais un aplat. */
+    activeBackground: 'rgba(192, 138, 52, 0.14)',
+    activeBorder: palette.gold500,
+    activeLabel: palette.gold300,
+    label: ink.label,
+    /** Interrupteur enclenché : là, l'or est bien un aplat — c'est une action. */
+    toggleOn: palette.gold500,
+    toggleThumbOn: palette.inkOnGold,
+    toggleThumbOff: ink.label,
+  },
+
+  /**
+   * Séance de musculation — maquette 09, composants 06 et 08.
+   */
+  strength: {
+    /** Bandeau des libellés de colonne, en retrait sous l'en-tête. */
+    columnBandBackground: palette.ember900,
+    /** Filet entre deux lignes de série : un cran sous le filet de carte. */
+    setSeparator: line.default,
+    /** Ligne en cours de saisie : voile d'or et liseré à gauche. */
+    activeRowBackground: 'rgba(192, 138, 52, 0.09)',
+    activeRowBar: palette.gold500,
+    activeRowIndex: palette.gold300,
+    /**
+     * Valeur absente : le tiret cadratin et son unité s'effacent ensemble.
+     * La maquette pose 24 % ; le §02 n'accorde que quatre opacités, et 32 % est
+     * le cran le plus proche.
+     */
+    emptyValue: ink.label,
+    /** Nom d'exercice sur l'en-tête teinté d'une carte de saisie. */
+    exerciseName: palette.gold100,
+    /** Action en ligne : « Ajouter une série ». */
+    rowAction: palette.gold500,
+    /** Étiquette « À MOI » d'un exercice perso. */
+    ownedBorder: 'rgba(224, 178, 106, 0.45)',
+    ownedLabel: palette.gold300,
   },
 
   /** Modale de level-up — Composants detail 05. */

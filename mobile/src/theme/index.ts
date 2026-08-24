@@ -35,6 +35,7 @@ export {
   xpBar,
   sportGlyph,
   diamond,
+  setRow,
 } from './layout';
 export type { MedallionSize } from './layout';
 

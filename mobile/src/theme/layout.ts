@@ -35,6 +35,8 @@ export const padding = {
   modalBody: { x: 20, y: 24 },
   /** Bouton compact, en ligne. */
   buttonCompact: 18,
+  /** Rangée dense à l'intérieur d'une carte — maquette 09, composants 06 et 08. */
+  dense: { x: 12, y: 12 },
 } as const;
 
 /** Écarts internes, plus serrés que le rythme d'écran du §05. */
@@ -61,6 +63,8 @@ export const touchTarget = {
   hero: 60,
   /** Champ de saisie du log. */
   field: 56,
+  /** Ligne de liste : catalogue, exercice replié en réordonnancement. */
+  row: 56,
   /** Bouton primaire standard. */
   primary: 56,
   /** Bouton secondaire : un cran sous le primaire, la bordure compensant à l'œil. */
@@ -181,4 +185,17 @@ export const sportGlyph = {
 export const diamond = {
   locked: { size: 14, stroke: 2 },
   fragment: { size: 20, stroke: 2 },
+} as const;
+
+/**
+ * Ligne de série — maquette 09, composant 06.
+ *
+ * La grille est fixe à trois colonnes (rang, comptage, charge) pour que la
+ * charge reste alignée d'une ligne à l'autre : c'est la colonne qu'on relit.
+ */
+export const setRow = {
+  /** Colonne du rang. 22 px dans la maquette, arrondi au cran usuel. */
+  indexColumn: 24,
+  /** Liseré à gauche d'une ligne en cours de saisie. */
+  activeBar: 2,
 } as const;

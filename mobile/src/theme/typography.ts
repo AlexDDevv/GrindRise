@@ -90,6 +90,8 @@ const sans = {
   buttonCompact: { ...text[14], fontFamily: fontFamily.sansBold },
   /** Libellé de bouton tertiaire, sans fond ni contour. */
   buttonTertiary: { ...text[14], fontFamily: fontFamily.sansMedium },
+  /** Action en ligne dans une carte : « Ajouter une série ». */
+  rowAction: { ...text[12], fontFamily: fontFamily.sansMedium },
 
   /** Chiffre héros : volume total, record. */
   metricHero: {
@@ -100,6 +102,16 @@ const sans = {
   },
   /** Métrique d'une carte détaillée. */
   metric: { ...text[20], fontFamily: fontFamily.sansSemiBold, color: colors.text.data, ...tabular },
+  /**
+   * Valeur d'un grand champ de saisie — maquette 09, écran ③. Le DA pose 26 px ;
+   * l'échelle retient 24, le cran usuel le plus proche.
+   */
+  metricField: {
+    ...text[24],
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.text.data,
+    ...tabular,
+  },
   /** Compteur d'XP au-dessus d'une jauge. */
   metricInline: {
     ...text[14],
