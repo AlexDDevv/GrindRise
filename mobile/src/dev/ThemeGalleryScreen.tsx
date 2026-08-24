@@ -12,6 +12,8 @@ import {
   WorkoutCard,
   XpBar,
 } from '../components/ui';
+import { ExerciseCard } from '../features/strength/components/ExerciseCard';
+import { SetRow } from '../features/strength/components/SetRow';
 import { border, colors, gap, padding, spacing, touchTarget, typography } from '../theme';
 
 /**
@@ -217,6 +219,88 @@ export function ThemeGalleryScreen() {
               </Pressable>
             )}
           />
+        </Section>
+
+        <Section number="08" title="Séance de musculation">
+          <Variant label="Charge externe · 3 séries">
+            <ExerciseCard
+              exercise={{
+                key: 'g1',
+                exerciseId: 'x',
+                name: 'Développé couché',
+                muscleGroup: 'pectoraux',
+                collapsed: false,
+                sets: [
+                  { type: 'reps', reps: 10, weightKg: 80, isBodyweight: false },
+                  { type: 'reps', reps: 8, weightKg: 90, isBodyweight: false },
+                  { type: 'reps', reps: 6, weightKg: 95, isBodyweight: false },
+                ],
+              }}
+              canAddSet
+              onAddSet={() => {}}
+              onPressSet={() => {}}
+              onLongPressSet={() => {}}
+              onToggleCollapsed={() => {}}
+              onLongPressHeader={() => {}}
+            />
+          </Variant>
+
+          <Variant label="Poids du corps · dont une lestée">
+            <ExerciseCard
+              exercise={{
+                key: 'g2',
+                exerciseId: 'y',
+                name: 'Tractions',
+                muscleGroup: 'dos',
+                collapsed: false,
+                sets: [
+                  { type: 'reps', reps: 8, weightKg: null, isBodyweight: true },
+                  { type: 'reps', reps: 6, weightKg: 10, isBodyweight: true },
+                ],
+              }}
+              canAddSet
+              onAddSet={() => {}}
+              onPressSet={() => {}}
+              onLongPressSet={() => {}}
+              onToggleCollapsed={() => {}}
+              onLongPressHeader={() => {}}
+            />
+          </Variant>
+
+          <Variant label="Temps, et ligne vide">
+            <SetRow
+              index={1}
+              set={{ type: 'time', durationSeconds: 45, weightKg: 20, isBodyweight: false }}
+            />
+            <SetRow index={2} set={null} />
+            <SetRow
+              index={3}
+              active
+              set={{ type: 'reps', reps: 6, weightKg: 95, isBodyweight: false }}
+            />
+          </Variant>
+
+          <Variant label="Repliée">
+            <ExerciseCard
+              exercise={{
+                key: 'g3',
+                exerciseId: 'y',
+                name: 'Tractions',
+                muscleGroup: 'dos',
+                collapsed: true,
+                sets: [
+                  { type: 'reps', reps: 8, weightKg: null, isBodyweight: true },
+                  { type: 'reps', reps: 6, weightKg: 10, isBodyweight: true },
+                ],
+              }}
+              canAddSet
+              onAddSet={() => {}}
+              onPressSet={() => {}}
+              onLongPressSet={() => {}}
+              onToggleCollapsed={() => {}}
+              onLongPressHeader={() => {}}
+            />
+          </Variant>
         </Section>
       </ScrollView>
 
