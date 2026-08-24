@@ -1,17 +1,18 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   Button,
   LevelMedallion,
   LevelUpModal,
+  ReorderableList,
   SegmentedControl,
   Switch,
   WorkoutCard,
   XpBar,
 } from '../components/ui';
-import { colors, spacing, typography } from '../theme';
+import { border, colors, gap, padding, spacing, touchTarget, typography } from '../theme';
 
 /**
  * Banc d'essai du thème.
@@ -52,6 +53,7 @@ export function ThemeGalleryScreen() {
   const [modal, setModal] = useState<'levelUp' | 'fragment' | null>(null);
   const [setType, setSetType] = useState<'reps' | 'time'>('reps');
   const [bodyweight, setBodyweight] = useState(false);
+  const [ordre, setOrdre] = useState(['Développé couché', 'Développé militaire', 'Dips']);
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -190,6 +192,32 @@ export function ThemeGalleryScreen() {
             />
           </Variant>
         </Section>
+
+        <Section number="07" title="Liste réordonnable">
+          <ReorderableList
+            data={ordre}
+            keyOf={(nom) => nom}
+            rowHeight={touchTarget.row}
+            onMove={(from, to) => {
+              setOrdre((courant) => {
+                const suivant = [...courant];
+                const [deplace] = suivant.splice(from, 1);
+                suivant.splice(to, 0, deplace);
+                return suivant;
+              });
+            }}
+            renderItem={(nom, index, handle) => (
+              <Pressable
+                onPressIn={handle.onPressIn}
+                onPressOut={handle.onPressOut}
+                style={styles.reorderRow}
+              >
+                <Text style={typography.mono.meta}>{index + 1}</Text>
+                <Text style={typography.display.cardTitleCompact}>{nom}</Text>
+              </Pressable>
+            )}
+          />
+        </Section>
       </ScrollView>
 
       <LevelUpModal
@@ -249,5 +277,15 @@ const styles = StyleSheet.create({
   },
   loreAccent: {
     color: colors.text.lore,
+  },
+  reorderRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: gap.row,
+    paddingHorizontal: padding.dense.x,
+    backgroundColor: colors.surface.raised,
+    borderWidth: border.hairline,
+    borderColor: colors.line.default,
   },
 });

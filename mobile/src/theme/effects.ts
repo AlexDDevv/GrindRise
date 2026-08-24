@@ -39,6 +39,20 @@ export const shadow = {
     spreadDistance: 0,
     color: 'rgba(0, 0, 0, 0.65)',
   } satisfies BoxShadowValue,
+
+  /**
+   * Ligne saisie pendant un réordonnancement — maquette 09, écran ⑦ : « la
+   * ligne saisie flotte ». La seule ombre du DA portée par autre chose qu'une
+   * modale, et c'est assumé : rien d'autre ne dit qu'un élément a quitté le
+   * plan de la liste.
+   */
+  dragged: {
+    offsetX: 0,
+    offsetY: 8,
+    blurRadius: 20,
+    spreadDistance: 0,
+    color: 'rgba(0, 0, 0, 0.5)',
+  } satisfies BoxShadowValue,
 } as const;
 
 /**
