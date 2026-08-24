@@ -165,8 +165,8 @@ const styles = StyleSheet.create({
   columns: {
     flexDirection: 'row',
     gap: gap.row,
-    paddingVertical: padding.card.y / 2,
-    paddingHorizontal: padding.dense.x,
+    paddingVertical: padding.columnBand.y,
+    paddingHorizontal: padding.columnBand.x,
     backgroundColor: colors.strength.columnBandBackground,
   },
   columnIndex: {

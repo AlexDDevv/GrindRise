@@ -37,6 +37,12 @@ export const padding = {
   buttonCompact: 18,
   /** Rangée dense à l'intérieur d'une carte — maquette 09, composants 06 et 08. */
   dense: { x: 12, y: 12 },
+  /**
+   * Bandeau des libellés de colonne, plus serré que la rangée qu'il surplombe —
+   * maquette 09, composant 08. Un jeton nommé plutôt qu'une division posée dans
+   * le composant : le thème est le seul endroit où une dimension se décide.
+   */
+  columnBand: { x: 12, y: 8 },
 } as const;
 
 /** Écarts internes, plus serrés que le rythme d'écran du §05. */

@@ -86,7 +86,8 @@ export function summarizeExercise(exercise: SessionExercise): string {
   const parts = [`${sets.length} série${sets.length > 1 ? 's' : ''}`];
 
   const reps = sets.reduce((total, set) => total + (set.type === 'reps' ? set.reps : 0), 0);
-  if (reps > 0) parts.push(`${reps} réps`);
+  // « 1 rép. » et non « 1 réps » : l'abréviation s'accorde comme le mot entier.
+  if (reps > 0) parts.push(`${reps} rép${reps > 1 ? 's' : '.'}`);
 
   const seconds = sets.reduce(
     (total, set) => total + (set.type === 'time' ? set.durationSeconds : 0),
