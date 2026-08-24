@@ -49,6 +49,23 @@ import type { SessionExercise, SetDraft } from '../types';
  * déciderait de ce qui mérite un `Alert` ne serait plus rendable ailleurs.
  */
 
+/**
+ * Ce que la suppression d'un exercice emporte.
+ *
+ * Trois cas plutôt qu'un « série(s) » abrégé : une carte sans aucune série est
+ * non seulement possible mais *recommandée* à la suppression — c'est ce que dit
+ * le message de validation quand un exercice est resté vide — et « ses 0 série »
+ * comme « ses 1 série » ne se disent pas.
+ */
+function removalWarning(exercise: SessionExercise): string {
+  const count = exercise.sets.length;
+
+  if (count === 0) return `« ${exercise.name} » sera retiré de la séance.`;
+  if (count === 1) return `« ${exercise.name} » sera retiré, avec sa série.`;
+
+  return `« ${exercise.name} » sera retiré, avec ses ${count} séries.`;
+}
+
 /** Quelle série la feuille est en train d'éditer. */
 type Editing = {
   exerciseKey: string;
@@ -96,7 +113,7 @@ export function StrengthSessionScreen() {
   const confirmRemoveExercise = (exercise: SessionExercise) => {
     Alert.alert(
       'Retirer cet exercice ?',
-      `« ${exercise.name} » et ses ${exercise.sets.length} série(s) seront perdus.`,
+      removalWarning(exercise),
       [
         { text: 'Annuler', style: 'cancel' },
         {
