@@ -21,9 +21,9 @@ import { metricFieldsFor, type MetricField } from './sportMetrics';
 /** Ce que `metrics` contient réellement, une fois relu de la base. */
 type RawMetrics = Record<string, unknown>;
 
-/** Mot accolé à la valeur : l'unité si elle existe, sinon l'abréviation. */
+/** Mot accolé à la valeur : l'unité de la config, quand elle en a une. */
 function suffixOf(field: MetricField): string | undefined {
-  return field.unit ?? field.short;
+  return field.unit;
 }
 
 /**
@@ -70,14 +70,14 @@ function readFields(
 const SUMMARY_METRICS = 2;
 
 /**
- * Résumé d'une ligne : « Hier · 4 séries · 80 kg ».
+ * Résumé d'une ligne : « Hier · 8 km · 45 min ».
  *
  * Deux métriques au plus, comme dans le DA : la carte compacte les pose en
  * légende de 12 points, sur une seule ligne qui doit tenir à côté du gain d'XP.
- * Les champs marqués `highlight` passent devant, ce qui évite de résumer une
- * séance de musculation par ses séries et ses répétitions en laissant tomber la
- * charge. Une séance sans métrique se réduit à son jour, ce qui est exactement ce
- * qu'elle dit — la présence a suffi.
+ * L'ordre de déclaration décide, ce qui suffit aux sports à deux champs — les
+ * seuls qui restent depuis que la musculation se logue en exercices. Une séance
+ * sans métrique se réduit à son jour, ce qui est exactement ce qu'elle dit — la
+ * présence a suffi.
  */
 export function summarizeWorkout(
   sportId: string,
@@ -85,16 +85,7 @@ export function summarizeWorkout(
   performedAt: string,
   now?: Date,
 ): string {
-  const present = readFields(sportId, metrics);
-
-  // L'ordre de la config est conservé à l'intérieur de chaque groupe : le tri ne
-  // fait que remonter les champs marqués, il ne réordonne pas le reste.
-  const ordered = [
-    ...present.filter(({ field }) => field.highlight),
-    ...present.filter(({ field }) => !field.highlight),
-  ];
-
-  const parts = ordered
+  const parts = readFields(sportId, metrics)
     .slice(0, SUMMARY_METRICS)
     .map(({ metric }) => (metric.unit ? `${metric.value} ${metric.unit}` : metric.value));
 

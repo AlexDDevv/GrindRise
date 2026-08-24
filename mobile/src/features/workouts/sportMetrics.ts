@@ -24,21 +24,9 @@ export type MetricField = {
   label: string;
   /** Suffixe affiché dans le champ (kg, km…). */
   unit?: string;
-  /**
-   * Mot accolé à la valeur dans un résumé de séance : « 4 séries », « 80 kg ».
-   * Inutile quand `unit` suffit — c'est alors elle qui sert.
-   */
-  short?: string;
-  /**
-   * À retenir dans un résumé d'une ligne, où deux métriques tiennent au plus.
-   * Sans marque, l'ordre de déclaration décide — ce qui suffit aux sports à deux
-   * champs, mais choisirait « 4 séries · 10 rép. » pour une séance de
-   * musculation, en laissant tomber la charge qui la caractérise.
-   */
-  highlight?: boolean;
   /** Le serveur refuse la séance si ce champ est vide. */
   required: boolean;
-  /** Les entiers n'acceptent pas de décimale (séries, répétitions). */
+  /** Les entiers n'acceptent pas de décimale (`durationMin`, le seul aujourd'hui). */
   integer?: boolean;
   placeholder?: string;
 };
