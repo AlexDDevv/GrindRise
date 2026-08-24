@@ -41,9 +41,16 @@ function metricsCarryOnlyDuration(metrics: unknown): boolean {
   // `WorkoutMetricsDto`, même absents du corps envoyé — avec `undefined` pour
   // valeur. `Object.keys` les compterait donc à tort ; seule une clé dont la
   // valeur est définie porte une métrique effectivement envoyée.
-  return Object.entries(metrics).every(
-    ([key, value]) => key === 'durationMin' || value === undefined,
-  );
+  return Object.entries(metrics).every(([key, value]) => {
+    // Champ déclaré mais non envoyé : il ne compte pas.
+    if (value === undefined) return true;
+    if (key !== 'durationMin') return false;
+
+    // `@IsOptional()` traite `null` comme une absence et court-circuite
+    // `@IsNumber()`, `@Min()` et `@Max()`. Sans ce refus, `{ durationMin: null }`
+    // traverserait les deux couches et se retrouverait tel quel en jsonb.
+    return value !== null;
+  });
 }
 
 /**

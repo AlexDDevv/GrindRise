@@ -154,6 +154,21 @@ describe('CreateWorkoutDto', () => {
       expect(messages.length).toBeGreaterThan(0);
     });
 
+    it('refuse une durée nulle, que `@IsOptional()` laisserait passer', async () => {
+      // `null` n'est pas transmissible en `undefined` par JSON : un client peut
+      // vraiment l'envoyer, et il traversait les deux couches de validation.
+      const messages = await erreurs({
+        sportId: 'musculation',
+        performedAt: QUAND,
+        metrics: { durationMin: null },
+        exercises: [
+          { exerciseId: EXERCICE, sets: [{ type: 'reps', reps: 10 }] },
+        ],
+      });
+
+      expect(messages.length).toBeGreaterThan(0);
+    });
+
     it('refuse une séance sans aucun exercice', async () => {
       const messages = await erreurs({
         sportId: 'musculation',
