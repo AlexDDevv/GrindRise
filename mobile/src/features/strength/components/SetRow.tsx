@@ -9,7 +9,7 @@ import {
   touchTarget,
   typography,
 } from '../../../theme';
-import { formatSeconds } from '../sessionStats';
+import { formatSeconds, repsUnit } from '../sessionStats';
 import type { SetDraft } from '../types';
 
 /**
@@ -66,10 +66,10 @@ function Count({ set }: { set: SetDraft | null }) {
   if (set === null) return <EmptyValue unit="réps" />;
 
   return set.type === 'reps' ? (
-    // « 1 rép. » et non « 1 réps » : c'est l'abréviation d'un nom comptable, pas
-    // un symbole d'unité invariable comme « kg » ou « min ». L'étiquette
-    // d'accessibilité décline déjà, le texte visible doit s'aligner dessus.
-    <Value value={String(set.reps)} unit={set.reps > 1 ? 'réps' : 'rép.'} />
+    // L'accord de l'unité est centralisé dans `repsUnit` : la règle a déjà
+    // divergé deux fois dans ce chantier. L'étiquette d'accessibilité décline
+    // déjà, le texte visible doit s'aligner dessus.
+    <Value value={String(set.reps)} unit={repsUnit(set.reps)} />
   ) : (
     <Value value={formatSeconds(set.durationSeconds)} unit="min" />
   );

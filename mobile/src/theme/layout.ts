@@ -94,6 +94,11 @@ export const radius = {
 /** Épaisseur de filet. Le DA ne dessine qu'un cheveu, hors échelle. */
 export const border = {
   hairline: 1,
+  /**
+   * Pas de filet. Même raison d'être que `radius.none` : rendre le zéro lisible
+   * comme une décision. Ici, c'est la boîte enveloppante qui porte le filet.
+   */
+  none: 0,
 } as const;
 
 /**

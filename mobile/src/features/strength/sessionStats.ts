@@ -109,3 +109,14 @@ export function formatSeconds(total: number): string {
 
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
+
+/**
+ * « 1 rép. » ou « 10 réps ».
+ *
+ * L'abréviation d'un nom comptable s'accorde comme le mot entier, contrairement
+ * à un symbole d'unité invariable comme « kg » ou « min ». Écrite ici et nulle
+ * part ailleurs : cette règle a déjà divergé deux fois dans ce chantier.
+ */
+export function repsUnit(count: number): string {
+  return count === 1 ? 'rép.' : 'réps';
+}

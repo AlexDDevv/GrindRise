@@ -132,12 +132,14 @@ const styles = StyleSheet.create({
     lineHeight: undefined,
     textAlign: 'right',
     minHeight: undefined,
+    // Annule le rembourrage du style de base : c'est `metricBox` qui le porte
+    // désormais, et le cumuler décalerait le chiffre de sa boîte.
     paddingHorizontal: 0,
     backgroundColor: colors.transparent,
     flexShrink: 1,
   },
   borderless: {
-    borderWidth: 0,
+    borderWidth: border.none,
   },
   metricBox: {
     flexDirection: 'row',

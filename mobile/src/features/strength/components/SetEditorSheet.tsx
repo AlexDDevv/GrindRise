@@ -33,7 +33,7 @@ import {
   switchType,
   type SetDraftInput,
 } from '../setDraft';
-import { formatSeconds } from '../sessionStats';
+import { formatSeconds, repsUnit } from '../sessionStats';
 import type { SetDraft } from '../types';
 
 /**
@@ -144,7 +144,7 @@ export function SetEditorSheet({
                 <TextField
                   label={isTime ? 'Durée' : 'Répétitions'}
                   emphasis="metric"
-                  unitInline={isTime ? 's' : repsUnit(draft.count)}
+                  unitInline={isTime ? 's' : repsUnit(Number.parseInt(draft.count, 10))}
                   value={draft.count}
                   onChangeText={(count) => setDraft((d) => ({ ...d, count }))}
                   keyboardType="number-pad"
@@ -232,16 +232,6 @@ function Chip({ label, onPress }: { label: string; onPress: () => void }) {
       <Text style={typography.sans.metricInline}>{label}</Text>
     </Pressable>
   );
-}
-
-/**
- * « 1 rép. » et non « 1 réps » : l'abréviation d'un nom comptable s'accorde
- * comme le mot entier, contrairement à un symbole d'unité invariable comme
- * « kg » ou « s ». Même règle que `SetRow`, appliquée ici à la saisie brute
- * plutôt qu'à une valeur déjà validée.
- */
-function repsUnit(count: string): string {
-  return Number.parseInt(count, 10) === 1 ? 'rép.' : 'réps';
 }
 
 /** « 8 × 90 kg » — de quoi reconnaître la série sans la relire en entier. */
