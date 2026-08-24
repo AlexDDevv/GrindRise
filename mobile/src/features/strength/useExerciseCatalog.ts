@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError, apiRequest } from '../../lib/api';
 import type { Database } from '../../lib/database.types';
@@ -18,6 +18,11 @@ export type Exercise = Database['public']['Tables']['exercises']['Row'];
  * Aucun cache : le catalogue change quand l'utilisateur crée un exercice, donc
  * `useReferenceData` — pensé pour des tables constantes entre deux déploiements
  * — ne convient pas ici.
+ *
+ * La recherche est débattue pour espacer les requêtes, mais c'est un compteur
+ * de requêtes (`requestId`) qui empêche l'affichage dans le désordre : une
+ * frappe ancienne partie sur un réseau lent peut répondre après une frappe
+ * plus récente, et la temporisation seule ne s'en protège pas.
  */
 
 /** Le temps de finir de taper avant d'interroger le serveur. */
@@ -34,7 +39,19 @@ export function useExerciseCatalog() {
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  /**
+   * Numéro de la dernière lecture demandée.
+   *
+   * La temporisation espace les requêtes, elle n'empêche pas deux réponses de
+   * se croiser : une frappe ancienne partie sur un réseau lent peut revenir
+   * après une frappe récente et réafficher des résultats périmés. Ce compteur
+   * fait que seule la dernière lecture demandée a le droit d'écrire.
+   */
+  const requestId = useRef(0);
+
   const load = useCallback(async (motif: string, groupe: MuscleGroup | null) => {
+    const id = (requestId.current += 1);
+
     setIsLoading(true);
     setError(null);
 
@@ -47,17 +64,23 @@ export function useExerciseCatalog() {
     const query = params.toString();
 
     try {
-      setExercises(await apiRequest<Exercise[]>(`/exercises${query ? `?${query}` : ''}`));
+      const rows = await apiRequest<Exercise[]>(`/exercises${query ? `?${query}` : ''}`);
+
+      // Une réponse dépassée n'écrase pas une plus récente.
+      if (id === requestId.current) setExercises(rows);
     } catch (cause) {
+      if (id !== requestId.current) return;
+
       console.warn('[strength] catalogue illisible :', messageOf(cause));
       setError(messageOf(cause));
     } finally {
-      setIsLoading(false);
+      // Seule la dernière lecture éteint l'indicateur : sinon une réponse
+      // dépassée le couperait alors qu'une requête est encore en vol.
+      if (id === requestId.current) setIsLoading(false);
     }
   }, []);
 
-  // Débattu à la frappe : une requête par caractère saturerait l'API et
-  // afficherait les réponses dans le désordre.
+  // Débattu à la frappe : une requête par caractère saturerait l'API.
   useEffect(() => {
     const timer = setTimeout(() => void load(search, muscleGroup), SEARCH_DEBOUNCE_MS);
 
