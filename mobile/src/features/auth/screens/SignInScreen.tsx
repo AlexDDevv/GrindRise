@@ -131,7 +131,7 @@ export function SignInScreen() {
       ) : (
         <TextField
           label="Code reçu"
-          emphasis
+          emphasis="code"
           value={code}
           onChangeText={setCode}
           placeholder="000000"

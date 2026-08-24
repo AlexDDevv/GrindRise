@@ -29,12 +29,53 @@ type Props = {
   unit?: string;
   /** Mention « facultatif » sous le libellé, quand le serveur ne l'exige pas. */
   optional?: boolean;
-  /** Saisie centrée et espacée, pour un code à usage unique. */
-  emphasis?: boolean;
+  /**
+   * Traitement particulier de la valeur.
+   *
+   * `code` — saisie centrée et espacée, pour un code à usage unique.
+   * `metric` — grand chiffre centré, avec son unité posée dans la boîte :
+   *   c'est le champ de saisie d'une série (maquette 09, écran ③), où la valeur
+   *   se relit à distance de bras pendant l'effort.
+   */
+  emphasis?: 'code' | 'metric';
+  /** Unité rendue à côté de la valeur, à l'intérieur de la boîte. `metric` seul. */
+  unitInline?: string;
 } & Omit<TextInputProps, 'style' | 'placeholderTextColor'>;
 
-export function TextField({ label, unit, optional, emphasis, ...input }: Props) {
+export function TextField({
+  label,
+  unit,
+  optional,
+  emphasis,
+  unitInline,
+  ...input
+}: Props) {
   const [focused, setFocused] = useState(false);
+
+  const field = (
+    <TextInput
+      {...input}
+      onFocus={(event) => {
+        setFocused(true);
+        input.onFocus?.(event);
+      }}
+      onBlur={(event) => {
+        setFocused(false);
+        input.onBlur?.(event);
+      }}
+      style={[
+        styles.input,
+        emphasis === 'code' && styles.code,
+        emphasis === 'metric' && styles.metric,
+        // Un champ `metric` porte son filet sur la boîte qui l'enveloppe :
+        // le laisser aussi sur l'input dessinerait deux cadres.
+        emphasis === 'metric' ? styles.borderless : focused && styles.focused,
+      ]}
+      placeholderTextColor={colors.text.label}
+      selectionColor={colors.accent.gold}
+      accessibilityLabel={label}
+    />
+  );
 
   return (
     <View style={styles.field}>
@@ -44,21 +85,16 @@ export function TextField({ label, unit, optional, emphasis, ...input }: Props) 
         {optional ? ' — FACULTATIF' : ''}
       </Text>
 
-      <TextInput
-        {...input}
-        onFocus={(event) => {
-          setFocused(true);
-          input.onFocus?.(event);
-        }}
-        onBlur={(event) => {
-          setFocused(false);
-          input.onBlur?.(event);
-        }}
-        style={[styles.input, emphasis && styles.emphasis, focused && styles.focused]}
-        placeholderTextColor={colors.text.label}
-        selectionColor={colors.accent.gold}
-        accessibilityLabel={label}
-      />
+      {emphasis === 'metric' ? (
+        <View style={[styles.metricBox, focused && styles.focused]}>
+          {field}
+          {unitInline ? (
+            <Text style={typography.sans.unit}>{unitInline}</Text>
+          ) : null}
+        </View>
+      ) : (
+        field
+      )}
     </View>
   );
 }
@@ -79,7 +115,7 @@ const styles = StyleSheet.create({
   focused: {
     borderColor: colors.accent.gold,
   },
-  emphasis: {
+  code: {
     // Le cran héros du §03, sans son interligne : dans un `TextInput`, un
     // `lineHeight` supérieur à la hauteur de ligne du clavier rogne les
     // glyphes sur Android.
@@ -90,5 +126,28 @@ const styles = StyleSheet.create({
     // Un code se lit chiffre par chiffre : l'écart les détache sans avoir à
     // dessiner six cases séparées.
     letterSpacing: 8,
+  },
+  metric: {
+    ...typography.sans.metricField,
+    lineHeight: undefined,
+    textAlign: 'right',
+    minHeight: undefined,
+    paddingHorizontal: 0,
+    backgroundColor: colors.transparent,
+    flexShrink: 1,
+  },
+  borderless: {
+    borderWidth: 0,
+  },
+  metricBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: gap.line,
+    minHeight: touchTarget.field,
+    paddingHorizontal: padding.card.x,
+    backgroundColor: colors.surface.well,
+    borderWidth: border.hairline,
+    borderColor: colors.line.control,
   },
 });
