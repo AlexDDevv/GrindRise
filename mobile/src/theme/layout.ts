@@ -231,6 +231,23 @@ export const setRow = {
 } as const;
 
 /**
+ * Liste réordonnable par glisser — maquette 09, écran ⑦.
+ *
+ * Le seuil est une distance à l'écran, donc une dimension : il vit ici comme le
+ * reste, et pas en nombre nu dans une condition de `PanResponder`.
+ */
+export const reorder = {
+  /**
+   * Déplacement vertical minimal avant que le glisser ne prenne le geste.
+   *
+   * Sous ce seuil, le tremblement d'un doigt posé sur la poignée armerait un
+   * déplacement que personne n'a demandé ; au-dessus d'un cran, c'est le
+   * `ScrollView` parent qui aurait le temps de reconnaître un défilement.
+   */
+  dragThreshold: 2,
+} as const;
+
+/**
  * Ligne d'exercice du catalogue — maquette 09, écrans ④ et ⑦.
  *
  * Poignée de réordonnancement (trois filets) et étiquette « À MOI » : deux

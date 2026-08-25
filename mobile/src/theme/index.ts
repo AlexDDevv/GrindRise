@@ -38,6 +38,7 @@ export {
   toggle,
   setRow,
   exerciseRow,
+  reorder,
 } from './layout';
 export type { MedallionSize } from './layout';
 

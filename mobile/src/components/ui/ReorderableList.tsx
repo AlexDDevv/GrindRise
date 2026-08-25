@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, StyleSheet, View } from 'react-native';
 
-import { border, colors, shadow } from '../../theme';
+import { border, colors, reorder, shadow } from '../../theme';
 
 /**
  * Liste réordonnable par glisser, sans dépendance native.
@@ -75,7 +75,7 @@ export function ReorderableList<T>({
         // Capture plutôt que bubbling : la poignée est un `Pressable`, et sans
         // capture c'est elle qui garderait le geste.
         onMoveShouldSetPanResponderCapture: (_event, gesture) =>
-          armed.current !== null && Math.abs(gesture.dy) > 2,
+          armed.current !== null && Math.abs(gesture.dy) > reorder.dragThreshold,
 
         // Le geste ne se rend pas. Le défaut accepte la terminaison : un
         // `ScrollView` parent qui reconnaît un défilement vertical réclame le
