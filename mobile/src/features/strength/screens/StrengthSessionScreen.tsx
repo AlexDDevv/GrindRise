@@ -33,6 +33,7 @@ import {
 } from '../sessionState';
 import {
   DURATION_MAX_MIN,
+  elapsedMinutes,
   formatDurationLabel,
   formatStopwatch,
   isImplausible,
@@ -321,7 +322,9 @@ export function StrengthSessionScreen() {
 
       <DurationSheet
         visible={durationSheetOpen}
-        defaultMinutes={Math.max(1, Math.round((now - session.startedAt) / 60_000))}
+        // La même fonction que l'envoi, et pas un calcul refait ici : avec un
+        // `Math.round`, la feuille proposait 51 là où le corps aurait porté 52.
+        defaultMinutes={elapsedMinutes(session.startedAt, now)}
         onCancel={() => setDurationSheetOpen(false)}
         onValidate={(minutes) => {
           store.setDurationOverride(minutes);
