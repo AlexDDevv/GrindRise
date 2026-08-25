@@ -77,6 +77,12 @@ export function ReorderableList<T>({
         onMoveShouldSetPanResponderCapture: (_event, gesture) =>
           armed.current !== null && Math.abs(gesture.dy) > 2,
 
+        // Le geste ne se rend pas. Le défaut accepte la terminaison : un
+        // `ScrollView` parent qui reconnaît un défilement vertical réclame le
+        // geste, et `onPanResponderTerminate` remettrait alors la ligne à sa
+        // place au milieu du glisser, sans que rien ne soit déplacé.
+        onPanResponderTerminationRequest: () => false,
+
         onPanResponderGrant: () => {
           if (armed.current === null) return;
           translateY.setValue(0);

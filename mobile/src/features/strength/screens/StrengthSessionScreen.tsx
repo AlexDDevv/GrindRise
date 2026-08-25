@@ -192,6 +192,11 @@ export function StrengthSessionScreen() {
   return (
     <Screen
       onBack={() => navigation.goBack()}
+      // Le défilement se coupe pendant le réordonnancement : le glisser de
+      // `ReorderableList` tourne sur un `PanResponder` en thread JS, et un
+      // `ScrollView` vertical au-dessus lui disputerait le geste à chaque
+      // déplacement. Hors de ce mode, les cartes dépliées doivent défiler.
+      scroll={!session.reordering}
       footer={
         <>
           {session.exercises.length > 0 ? (
