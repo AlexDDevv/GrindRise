@@ -88,8 +88,17 @@ export function StrengthSessionScreen() {
   // sont un pis-aller qu'on ne reproduit pas ici.
   const navigation = useNavigation<NativeStackNavigationProp<LogStackParamList>>();
 
+  // Un sélecteur par action, comme partout ailleurs dans le dépôt : le store nu
+  // abonne l'écran à tout l'état, y compris aux champs qu'il ne lit pas.
   const session = useStrengthSessionStore((s) => s.session);
-  const store = useStrengthSessionStore();
+  const addSet = useStrengthSessionStore((s) => s.addSet);
+  const updateSet = useStrengthSessionStore((s) => s.updateSet);
+  const removeSet = useStrengthSessionStore((s) => s.removeSet);
+  const removeExercise = useStrengthSessionStore((s) => s.removeExercise);
+  const moveExercise = useStrengthSessionStore((s) => s.moveExercise);
+  const toggleCollapsed = useStrengthSessionStore((s) => s.toggleCollapsed);
+  const setReordering = useStrengthSessionStore((s) => s.setReordering);
+  const setDurationOverride = useStrengthSessionStore((s) => s.setDurationOverride);
 
   const now = useNow(1_000);
   const { submit, isSubmitting, error: submitError } = useSubmitSession();
@@ -160,7 +169,7 @@ export function StrengthSessionScreen() {
         {
           text: 'Retirer',
           style: 'destructive',
-          onPress: () => store.removeExercise(exercise.key),
+          onPress: () => removeExercise(exercise.key),
         },
       ],
     );
@@ -172,7 +181,7 @@ export function StrengthSessionScreen() {
       {
         text: 'Supprimer',
         style: 'destructive',
-        onPress: () => store.removeSet(exercise.key, index),
+        onPress: () => removeSet(exercise.key, index),
       },
     ]);
   };
@@ -180,8 +189,8 @@ export function StrengthSessionScreen() {
   const validateSet = (set: SetDraft) => {
     if (editing === null) return;
 
-    if (editing.index === null) store.addSet(editing.exerciseKey, set);
-    else store.updateSet(editing.exerciseKey, editing.index, set);
+    if (editing.index === null) addSet(editing.exerciseKey, set);
+    else updateSet(editing.exerciseKey, editing.index, set);
 
     setEditing(null);
   };
@@ -204,7 +213,7 @@ export function StrengthSessionScreen() {
               label={session.reordering ? 'Terminer le réordonnancement' : 'Réordonner'}
               variant="tertiary"
               size="compact"
-              onPress={() => store.setReordering(!session.reordering)}
+              onPress={() => setReordering(!session.reordering)}
             />
           ) : null}
 
@@ -241,7 +250,7 @@ export function StrengthSessionScreen() {
           data={session.exercises}
           keyOf={(exercise) => exercise.key}
           rowHeight={touchTarget.row}
-          onMove={store.moveExercise}
+          onMove={moveExercise}
           renderItem={(exercise, index, handle) => (
             <ExerciseListItem
               name={exercise.name}
@@ -260,7 +269,7 @@ export function StrengthSessionScreen() {
               onAddSet={() => setEditing({ exerciseKey: exercise.key, index: null })}
               onPressSet={(index) => setEditing({ exerciseKey: exercise.key, index })}
               onLongPressSet={(index) => confirmRemoveSet(exercise, index)}
-              onToggleCollapsed={() => store.toggleCollapsed(exercise.key)}
+              onToggleCollapsed={() => toggleCollapsed(exercise.key)}
               onLongPressHeader={() => confirmRemoveExercise(exercise)}
             />
           ))}
@@ -332,7 +341,7 @@ export function StrengthSessionScreen() {
         defaultMinutes={elapsedMinutes(session.startedAt, now)}
         onCancel={() => setDurationSheetOpen(false)}
         onValidate={(minutes) => {
-          store.setDurationOverride(minutes);
+          setDurationOverride(minutes);
           setDurationSheetOpen(false);
         }}
       />
