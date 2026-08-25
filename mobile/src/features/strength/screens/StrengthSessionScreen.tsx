@@ -29,7 +29,12 @@ import {
   emptyExerciseNames,
   lastSetOf,
 } from '../sessionState';
-import { formatStopwatch } from '../sessionDuration';
+import {
+  formatDurationLabel,
+  formatStopwatch,
+  isImplausible,
+  sessionDurationMin,
+} from '../sessionDuration';
 import { useStrengthSessionStore } from '../strengthSessionStore';
 import { useNow } from '../useNow';
 import { useSubmitSession } from '../useSubmitSession';
@@ -93,7 +98,7 @@ export function StrengthSessionScreen() {
    * `reset` et non `navigate` : le retour arrière depuis l'écran de fin ne doit
    * pas ramener sur une séance déjà envoyée, qu'un second appui renverrait.
    */
-  const finish = async () => {
+  const send = async () => {
     const result = await submit();
     if (result === null) return;
 
@@ -101,6 +106,36 @@ export function StrengthSessionScreen() {
       index: 1,
       routes: [{ name: 'SportChoice' }, { name: 'StrengthSummary', params: { result } }],
     });
+  };
+
+  /**
+   * Le garde-fou de `isImplausible`, armé au dernier moment utile.
+   *
+   * Une séance ouverte le matin et validée le soir part sinon avec la durée du
+   * chrono, sans un mot. La confirmation porte la correction avec elle : sans
+   * « Corriger », il faudrait annuler, retrouver le chrono de l'en-tête, puis
+   * refaire le geste de validation.
+   *
+   * La durée est relue ici et non prise dans `now` : ce tic peut dater d'une
+   * seconde, et c'est celle que `toWorkoutPayload` calculera qu'on annonce.
+   */
+  const finish = () => {
+    const minutes = sessionDurationMin(session, Date.now());
+
+    if (!isImplausible(minutes)) {
+      void send();
+      return;
+    }
+
+    Alert.alert(
+      `Cette séance a duré ${formatDurationLabel(minutes)} ?`,
+      'Le chrono tourne depuis l’ouverture de la séance. Corrige la durée si tu as oublié de la terminer.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Corriger', onPress: () => setDurationSheetOpen(true) },
+        { text: 'Envoyer quand même', onPress: () => void send() },
+      ],
+    );
   };
 
   const stats = useMemo(() => computeSessionStats(session.exercises), [session.exercises]);
@@ -169,7 +204,7 @@ export function StrengthSessionScreen() {
             disabled={
               session.exercises.length === 0 || manquants.length > 0 || isSubmitting
             }
-            onPress={() => void finish()}
+            onPress={finish}
           />
         </>
       }
