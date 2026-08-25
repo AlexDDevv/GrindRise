@@ -33,7 +33,6 @@ import {
 } from '../sessionState';
 import {
   DURATION_MAX_MIN,
-  elapsedMinutes,
   formatDurationLabel,
   formatStopwatch,
   isImplausible,
@@ -339,9 +338,11 @@ export function StrengthSessionScreen() {
 
       <DurationSheet
         visible={durationSheetOpen}
-        // La même fonction que l'envoi, et pas un calcul refait ici : avec un
-        // `Math.round`, la feuille proposait 51 là où le corps aurait porté 52.
-        defaultMinutes={elapsedMinutes(session.startedAt, now)}
+        // La fonction de l'envoi, écrêtage compris : une séance laissée ouverte
+        // quarante heures pré-remplirait sinon la feuille à 2 400, que le bouton
+        // « Valider » refuse — coincé là par le garde-fou même qui l'y amène.
+        // Elle reprend aussi la correction déjà saisie plutôt que le chrono.
+        defaultMinutes={sessionDurationMin(session, now)}
         onCancel={() => setDurationSheetOpen(false)}
         onValidate={(minutes) => {
           setDurationOverride(minutes);
