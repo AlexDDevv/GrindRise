@@ -1,3 +1,4 @@
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
@@ -13,7 +14,7 @@ import {
   spacing,
   typography,
 } from '../../../theme';
-import type { LogStackParamList } from '../../../navigation/types';
+import type { LogStackParamList, MainTabParamList } from '../../../navigation/types';
 import { useLevelCurve } from '../../progression/useLevelCurve';
 import { useUserStore } from '../../../store/userStore';
 import { WorkoutCelebration } from '../../workouts/WorkoutCelebration';
@@ -52,6 +53,22 @@ export function StrengthSummaryScreen() {
   );
   const reached = curve?.find((row) => row.level === result.levelAfter);
 
+  /**
+   * Deux gestes pour un bouton, et les deux comptent.
+   *
+   * Le tableau de bord est un onglet, pas une route de cette pile : il faut
+   * remonter au navigateur parent pour l'atteindre. Et `popToTop` d'abord,
+   * sinon l'onglet « Séance » resterait posé sur ce résumé — `finish` a réduit
+   * la pile à `[SportChoice, StrengthSummary]`, la dépiler la rend au sélecteur
+   * de sport sans jamais rouvrir la séance envoyée, qui n'y est plus.
+   */
+  const returnToDashboard = () => {
+    navigation.popToTop();
+    navigation
+      .getParent<BottomTabNavigationProp<MainTabParamList>>()
+      ?.navigate('Dashboard');
+  };
+
   return (
     <Screen
       eyebrow="SÉANCE ENREGISTRÉE"
@@ -71,7 +88,7 @@ export function StrengthSummaryScreen() {
         <Button
           label="Retour au tableau de bord"
           size="hero"
-          onPress={() => navigation.navigate('SportChoice')}
+          onPress={returnToDashboard}
         />
       }
     >
