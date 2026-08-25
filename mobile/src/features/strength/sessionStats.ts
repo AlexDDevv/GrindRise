@@ -86,8 +86,7 @@ export function summarizeExercise(exercise: SessionExercise): string {
   const parts = [`${sets.length} série${sets.length > 1 ? 's' : ''}`];
 
   const reps = sets.reduce((total, set) => total + (set.type === 'reps' ? set.reps : 0), 0);
-  // « 1 rép. » et non « 1 réps » : l'abréviation s'accorde comme le mot entier.
-  if (reps > 0) parts.push(`${reps} rép${reps > 1 ? 's' : '.'}`);
+  if (reps > 0) parts.push(`${reps} ${repsUnit(reps)}`);
 
   const seconds = sets.reduce(
     (total, set) => total + (set.type === 'time' ? set.durationSeconds : 0),
@@ -111,12 +110,21 @@ export function formatSeconds(total: number): string {
 }
 
 /**
- * « 1 rép. » ou « 10 réps ».
+ * « 0 rép. », « 1 rép. » ou « 10 réps ».
  *
  * L'abréviation d'un nom comptable s'accorde comme le mot entier, contrairement
- * à un symbole d'unité invariable comme « kg » ou « min ». Écrite ici et nulle
- * part ailleurs : cette règle a déjà divergé deux fois dans ce chantier.
+ * à un symbole d'unité invariable comme « kg » ou « min ». Zéro prend donc le
+ * singulier au même titre qu'un, et il est atteignable : la feuille de saisie
+ * appelle cette fonction sur la frappe brute.
+ *
+ * Les deux valeurs sont nommées plutôt que testées par `count < 2` : sur un
+ * champ encore vide, cette frappe brute vaut `NaN`, qui retombe alors sur le
+ * pluriel — l'étiquette neutre d'un champ qui ne compte encore rien, et non un
+ * singulier qui compterait zéro.
+ *
+ * Écrite ici et nulle part ailleurs : cette règle a déjà divergé deux fois dans
+ * ce chantier.
  */
 export function repsUnit(count: number): string {
-  return count === 1 ? 'rép.' : 'réps';
+  return count === 0 || count === 1 ? 'rép.' : 'réps';
 }

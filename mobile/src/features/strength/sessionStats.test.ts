@@ -1,4 +1,4 @@
-import { computeSessionStats, summarizeExercise } from './sessionStats';
+import { computeSessionStats, repsUnit, summarizeExercise } from './sessionStats';
 import type { SessionExercise, SetDraft } from './types';
 
 const carte = (sets: SetDraft[], name = 'Développé couché'): SessionExercise => ({
@@ -15,6 +15,23 @@ const reps = (r: number, weightKg: number | null, isBodyweight = false): SetDraf
   reps: r,
   weightKg,
   isBodyweight,
+});
+
+describe('repsUnit', () => {
+  it('met le singulier à zéro comme à un, le pluriel au-delà', () => {
+    // Le zéro prend le singulier en français ; l'abréviation s'accorde comme
+    // le mot entier, contrairement à « kg » ou « min ».
+    expect(repsUnit(0)).toBe('rép.');
+    expect(repsUnit(1)).toBe('rép.');
+    expect(repsUnit(2)).toBe('réps');
+    expect(repsUnit(10)).toBe('réps');
+  });
+
+  it('garde l’étiquette neutre sur un champ encore vide', () => {
+    // La feuille de saisie appelle `repsUnit(Number.parseInt(count, 10))` sur
+    // la frappe brute, et `Number.parseInt('')` vaut `NaN`.
+    expect(repsUnit(Number.parseInt('', 10))).toBe('réps');
+  });
 });
 
 describe('computeSessionStats', () => {
