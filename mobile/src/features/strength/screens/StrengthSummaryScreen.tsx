@@ -129,9 +129,9 @@ export function StrengthSummaryScreen() {
  *
  * Le détail par exercice n'affiche pas les noms : la réponse ne porte que des
  * `exerciseId`, et refaire une lecture du catalogue pour l'écran de fin
- * coûterait une requête à un endroit où l'on ne fait que confirmer. Les lignes
- * disent donc le volume, pas l'exercice — c'est le nombre de séries écartées qui
- * porte l'information utile.
+ * coûterait une requête à un endroit où l'on ne fait que confirmer. Ce qui est
+ * annoncé est donc le nombre d'exercices écartés du tonnage, et non la liste de
+ * ceux qu'il faudrait nommer.
  */
 function TonnageNotice({ stats }: { stats: StrengthStats }) {
   if (!stats.tonnagePartial) return null;
