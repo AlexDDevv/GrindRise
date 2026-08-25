@@ -33,6 +33,20 @@ describe('parseDraft — répétitions', () => {
     });
   });
 
+  it('range une charge saisie « 0 » avec le champ vide, jamais dans le corps envoyé', () => {
+    // `toWorkoutPayload` n'omet que le nul : un zéro rendu tel quel partirait
+    // comme une charge déclarée de zéro kilo, ce qui n'est pas la même chose
+    // qu'une série sans lest.
+    expect(parseDraft(saisie({ weight: '0' }))).toEqual({
+      ok: true,
+      set: { type: 'reps', reps: 10, weightKg: null, isBodyweight: false },
+    });
+    expect(parseDraft(saisie({ weight: '0,00' }))).toEqual({
+      ok: true,
+      set: { type: 'reps', reps: 10, weightKg: null, isBodyweight: false },
+    });
+  });
+
   it('accepte la virgule décimale du clavier français', () => {
     expect(parseDraft(saisie({ weight: '82,5' }))).toEqual({
       ok: true,

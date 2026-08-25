@@ -169,7 +169,7 @@ function readInteger(raw: string, min: number, max: number): number | null {
  */
 const decimalise = (raw: string): string => raw.replaceAll(',', '.');
 
-/** @returns la charge, `null` si le champ est vide, `'invalide'` sinon. */
+/** @returns la charge, `null` si le champ est vide ou nul, `'invalide'` sinon. */
 function readWeight(raw: string): number | null | 'invalide' {
   const trimmed = raw.trim();
   // Vide n'est pas zéro : ce sera un champ omis, pas une charge déclarée.
@@ -181,5 +181,11 @@ function readWeight(raw: string): number | null | 'invalide' {
   }
 
   // `numeric(6, 2)` : le centième est tout ce que la base retiendra.
-  return Math.round(value * 100) / 100;
+  const arrondie = Math.round(value * 100) / 100;
+
+  // Zéro rejoint le champ vide plutôt que de partir tel quel. `toWorkoutPayload`
+  // n'omet que le nul, et l'en-tête de ce fichier-là est formel : envoyer `0`
+  // déclarerait une charge de zéro kilo là où `weight_kg` nul décrit une série
+  // sans lest. Une traction saisie « 0 » est une traction sans lest.
+  return arrondie === 0 ? null : arrondie;
 }
