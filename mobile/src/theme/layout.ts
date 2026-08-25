@@ -43,6 +43,12 @@ export const padding = {
    * le composant : le thème est le seul endroit où une dimension se décide.
    */
   columnBand: { x: 12, y: 8 },
+  /**
+   * Pas de rembourrage. Même raison d'être que `radius.none` et `border.none` :
+   * rendre le zéro lisible comme une décision. Ici, c'est la boîte enveloppante
+   * qui rembourre, et le cumuler décalerait ce qu'elle contient.
+   */
+  none: 0,
 } as const;
 
 /** Écarts internes, plus serrés que le rythme d'écran du §05. */

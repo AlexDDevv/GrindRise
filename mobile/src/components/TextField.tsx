@@ -132,9 +132,8 @@ const styles = StyleSheet.create({
     lineHeight: undefined,
     textAlign: 'right',
     minHeight: undefined,
-    // Annule le rembourrage du style de base : c'est `metricBox` qui le porte
-    // désormais, et le cumuler décalerait le chiffre de sa boîte.
-    paddingHorizontal: 0,
+    // C'est `metricBox` qui rembourre la métrique, avec son unité.
+    paddingHorizontal: padding.none,
     backgroundColor: colors.transparent,
     flexShrink: 1,
   },
