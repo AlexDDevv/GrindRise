@@ -74,6 +74,15 @@ export function ReorderableList<T>({
   const translateY = useRef(new Animated.Value(0)).current;
 
   /**
+   * Le passage unique par où l'armement de la poignée change, les trois
+   * désarmements compris : une ref ne prévient personne quand on l'écrit, et
+   * c'est ici qu'on saura le faire une fois pour toutes.
+   */
+  const setArmed = (next: number | null) => {
+    armed.current = next;
+  };
+
+  /**
    * Le passage unique par où l'état de glisser change, les trois sorties du
    * geste comprises : c'est donc le seul endroit d'où `onDragChange` peut partir
    * sans risquer d'en oublier une.
@@ -138,7 +147,7 @@ export function ReorderableList<T>({
 
         onPanResponderRelease: () => {
           const current = dragRef.current;
-          armed.current = null;
+          setArmed(null);
 
           if (current !== null && current.offset !== 0) {
             onMoveRef.current(current.from, current.from + current.offset);
@@ -151,7 +160,7 @@ export function ReorderableList<T>({
         // Un geste interrompu (appel entrant, notification) ne doit pas laisser
         // une ligne décalée à l'écran.
         onPanResponderTerminate: () => {
-          armed.current = null;
+          setArmed(null);
           translateY.setValue(0);
           setDragState(null);
         },
@@ -165,12 +174,12 @@ export function ReorderableList<T>({
         const active = drag?.from === index;
         const handle: ReorderHandle = {
           onPressIn: () => {
-            armed.current = index;
+            setArmed(index);
           },
           onPressOut: () => {
             // Relâché sans avoir bougé : désarmer, sinon un simple appui sur la
             // poignée armerait le glisser jusqu'au geste suivant.
-            if (dragRef.current === null) armed.current = null;
+            if (dragRef.current === null) setArmed(null);
           },
           active,
         };
