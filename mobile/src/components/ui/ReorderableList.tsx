@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, StyleSheet, View } from 'react-native';
 
 import { border, colors, reorder, shadow } from '../../theme';
@@ -38,6 +38,12 @@ type Props<T> = {
   rowHeight: number;
   /** Appelé une fois, au relâchement, avec les index de départ et d'arrivée. */
   onMove: (from: number, to: number) => void;
+  /**
+   * Vrai tant qu'une ligne est saisie. C'est ce que l'appelant attend pour
+   * suspendre un défilement parent : le geste ne dispute le sien qu'à ce
+   * moment-là, pas pendant tout le mode réordonnancement.
+   */
+  onDragChange?: (dragging: boolean) => void;
   renderItem: (item: T, index: number, handle: ReorderHandle) => React.ReactNode;
 };
 
@@ -48,6 +54,7 @@ export function ReorderableList<T>({
   keyOf,
   rowHeight,
   onMove,
+  onDragChange,
   renderItem,
 }: Props<T>) {
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -58,16 +65,40 @@ export function ReorderableList<T>({
   const dragRef = useRef<DragState | null>(null);
   const lengthRef = useRef(data.length);
   const onMoveRef = useRef(onMove);
+  const onDragChangeRef = useRef(onDragChange);
 
   lengthRef.current = data.length;
   onMoveRef.current = onMove;
+  onDragChangeRef.current = onDragChange;
 
   const translateY = useRef(new Animated.Value(0)).current;
 
+  /**
+   * Le passage unique par où l'état de glisser change, les trois sorties du
+   * geste comprises : c'est donc le seul endroit d'où `onDragChange` peut partir
+   * sans risquer d'en oublier une.
+   *
+   * Seules les entrées et les sorties sont annoncées : chaque franchissement de
+   * ligne repasse par ici, et l'appelant n'a pas à filtrer la répétition.
+   */
   const setDragState = (next: DragState | null) => {
+    const wasDragging = dragRef.current !== null;
+
     dragRef.current = next;
     setDrag(next);
+
+    if (wasDragging !== (next !== null)) onDragChangeRef.current?.(next !== null);
   };
+
+  // Démontée en plein glisser, quand l'appelant quitte le mode réordonnancement,
+  // la liste ne verra ni relâche ni terminaison : sans ce filet, elle laisserait
+  // l'appelant croire à un glisser sans fin.
+  useEffect(
+    () => () => {
+      if (dragRef.current !== null) onDragChangeRef.current?.(false);
+    },
+    [],
+  );
 
   const responder = useMemo(
     () =>
