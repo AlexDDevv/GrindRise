@@ -1,4 +1,9 @@
-import { computeSessionStats, repsUnit, summarizeExercise } from './sessionStats';
+import {
+  computeSessionStats,
+  formatSeconds,
+  repsUnit,
+  summarizeExercise,
+} from './sessionStats';
 import type { SessionExercise, SetDraft } from './types';
 
 const carte = (sets: SetDraft[], name = 'Développé couché'): SessionExercise => ({
@@ -15,6 +20,21 @@ const reps = (r: number, weightKg: number | null, isBodyweight = false): SetDraf
   reps: r,
   weightKg,
   isBodyweight,
+});
+
+describe('formatSeconds', () => {
+  it('tient ses bornes : zéro, la minute pleine, et l’heure', () => {
+    // Testé jusqu'ici seulement à travers `summarizeExercise`, donc jamais sur
+    // ses cas de bascule.
+    expect(formatSeconds(0)).toBe('0:00');
+    expect(formatSeconds(60)).toBe('1:00');
+    expect(formatSeconds(3_600)).toBe('60:00');
+  });
+
+  it('complète les secondes à deux chiffres', () => {
+    expect(formatSeconds(45)).toBe('0:45');
+    expect(formatSeconds(125)).toBe('2:05');
+  });
 });
 
 describe('repsUnit', () => {
