@@ -39,11 +39,16 @@ type Props<T> = {
   /** Appelé une fois, au relâchement, avec les index de départ et d'arrivée. */
   onMove: (from: number, to: number) => void;
   /**
-   * Vrai tant qu'une ligne est saisie. C'est ce que l'appelant attend pour
-   * suspendre un défilement parent : le geste ne dispute le sien qu'à ce
-   * moment-là, pas pendant tout le mode réordonnancement.
+   * Vrai dès que la poignée est tenue, et jusqu'au relâchement du glisser.
+   * C'est ce que l'appelant attend pour suspendre un défilement parent.
+   *
+   * Tenue et non saisie : entre l'appui et le franchissement du seuil de
+   * glisser, un `ScrollView` parent est libre de partir avec le geste, et
+   * `onPanResponderTerminationRequest` ne défend que ce qui est déjà accordé.
+   * Suspendre dès l'appui ne coûte rien, personne ne défile en tenant une
+   * poignée.
    */
-  onDragChange?: (dragging: boolean) => void;
+  onGrabChange?: (grabbed: boolean) => void;
   renderItem: (item: T, index: number, handle: ReorderHandle) => React.ReactNode;
 };
 
@@ -54,7 +59,7 @@ export function ReorderableList<T>({
   keyOf,
   rowHeight,
   onMove,
-  onDragChange,
+  onGrabChange,
   renderItem,
 }: Props<T>) {
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -63,48 +68,60 @@ export function ReorderableList<T>({
   // courantes, pas celles capturées à sa création.
   const armed = useRef<number | null>(null);
   const dragRef = useRef<DragState | null>(null);
+  const grabbedRef = useRef(false);
   const lengthRef = useRef(data.length);
   const onMoveRef = useRef(onMove);
-  const onDragChangeRef = useRef(onDragChange);
+  const onGrabChangeRef = useRef(onGrabChange);
 
   lengthRef.current = data.length;
   onMoveRef.current = onMove;
-  onDragChangeRef.current = onDragChange;
+  onGrabChangeRef.current = onGrabChange;
 
   const translateY = useRef(new Animated.Value(0)).current;
 
   /**
+   * Le seul endroit d'où l'appelant est prévenu.
+   *
+   * Deux sources pour un même fait, la poignée tenue et le glisser en cours :
+   * annoncer depuis chacune enverrait deux fois la même chose, l'armement étant
+   * toujours acquis quand le glisser démarre. Seules les transitions partent,
+   * si bien que les `onPanResponderMove` répétés restent muets.
+   */
+  const announceGrab = () => {
+    const grabbed = armed.current !== null || dragRef.current !== null;
+    if (grabbed === grabbedRef.current) return;
+
+    grabbedRef.current = grabbed;
+    onGrabChangeRef.current?.(grabbed);
+  };
+
+  /**
    * Le passage unique par où l'armement de la poignée change, les trois
-   * désarmements compris : une ref ne prévient personne quand on l'écrit, et
-   * c'est ici qu'on saura le faire une fois pour toutes.
+   * désarmements compris : une ref ne prévient personne quand on l'écrit,
+   * l'annonce part donc d'ici.
    */
   const setArmed = (next: number | null) => {
     armed.current = next;
+    announceGrab();
   };
 
   /**
    * Le passage unique par où l'état de glisser change, les trois sorties du
-   * geste comprises : c'est donc le seul endroit d'où `onDragChange` peut partir
-   * sans risquer d'en oublier une.
-   *
-   * Seules les entrées et les sorties sont annoncées : chaque franchissement de
-   * ligne repasse par ici, et l'appelant n'a pas à filtrer la répétition.
+   * geste comprises : aucune d'elles ne peut donc passer inaperçue de
+   * l'appelant.
    */
   const setDragState = (next: DragState | null) => {
-    const wasDragging = dragRef.current !== null;
-
     dragRef.current = next;
     setDrag(next);
-
-    if (wasDragging !== (next !== null)) onDragChangeRef.current?.(next !== null);
+    announceGrab();
   };
 
-  // Démontée en plein glisser, quand l'appelant quitte le mode réordonnancement,
-  // la liste ne verra ni relâche ni terminaison : sans ce filet, elle laisserait
-  // l'appelant croire à un glisser sans fin.
+  // Démontée alors que la poignée est encore tenue, quand l'appelant quitte le
+  // mode réordonnancement d'un second doigt, la liste ne verra ni relâche ni
+  // terminaison : sans ce filet, elle laisserait le défilement suspendu.
   useEffect(
     () => () => {
-      if (dragRef.current !== null) onDragChangeRef.current?.(false);
+      if (grabbedRef.current) onGrabChangeRef.current?.(false);
     },
     [],
   );
