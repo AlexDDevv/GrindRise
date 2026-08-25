@@ -56,8 +56,8 @@ describe('parseDraft — répétitions', () => {
 
   it('refuse une saisie à plusieurs virgules plutôt que d’en garder le début', () => {
     // `replace(',', '.')` n'en remplaçait que la première : « 1,2,5 » devenait
-    // « 1.2,5 », refusé parce qu'il y restait une virgule et non parce que la
-    // saisie avait été jugée.
+    // « 1.2,5 », refusé parce qu'une virgule y traînait encore et non parce
+    // que la saisie avait été reconnue comme une charge impossible.
     expect(parseDraft(saisie({ weight: '1,2,5' })).ok).toBe(false);
     expect(parseDraft(saisie({ count: '1,0,0' })).ok).toBe(false);
   });

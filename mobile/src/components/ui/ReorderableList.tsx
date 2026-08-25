@@ -106,9 +106,10 @@ export function ReorderableList<T>({
   };
 
   /**
-   * Le passage unique par où l'état de glisser change, les trois sorties du
-   * geste comprises : aucune d'elles ne peut donc passer inaperçue de
-   * l'appelant.
+   * Le passage unique par où l'état de glisser change : la relâche comme la
+   * terminaison y aboutissent. La troisième sortie, le démontage en plein
+   * geste, ne passe par personne — c'est le nettoyage de l'effet qui la
+   * rattrape.
    */
   const setDragState = (next: DragState | null) => {
     dragRef.current = next;

@@ -241,7 +241,7 @@ export const reorder = {
    * Déplacement vertical minimal avant que le glisser ne prenne le geste.
    *
    * Sous ce seuil, le tremblement d'un doigt posé sur la poignée armerait un
-   * déplacement que personne n'a demandé ; au-dessus d'un cran, c'est le
+   * déplacement que personne n'a demandé ; un cran au-dessus, c'est le
    * `ScrollView` parent qui aurait le temps de reconnaître un défilement.
    */
   dragThreshold: 2,

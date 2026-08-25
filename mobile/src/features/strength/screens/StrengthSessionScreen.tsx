@@ -105,8 +105,9 @@ export function StrengthSessionScreen() {
   const [durationSheetOpen, setDurationSheetOpen] = useState(false);
   // Une poignée de `ReorderableList` est tenue : son glisser tourne sur un
   // `PanResponder` en thread JS, et le `ScrollView` de l'écran lui disputerait
-  // le geste. Le mode réordonnancement entier reste défilable — trente lignes
-  // dépassent l'écran, et les dernières seraient sinon hors d'atteinte.
+  // le geste. Le défilement n'est suspendu que pendant la tenue, et non tout
+  // au long du mode : trente lignes dépassent l'écran, et les dernières
+  // seraient sinon hors d'atteinte.
   const [grabbed, setGrabbed] = useState(false);
 
   /**
@@ -147,7 +148,7 @@ export function StrengthSessionScreen() {
 
     Alert.alert(
       `Cette séance a duré ${formatDurationLabel(minutes)} ?`,
-      'Le chrono tourne depuis l’ouverture de la séance. Corrige-la si tu as oublié de terminer la séance.',
+      'Le chrono tourne depuis l’ouverture de la séance. Corrige la durée si tu as oublié de la terminer.',
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Corriger', onPress: () => setDurationSheetOpen(true) },
@@ -389,8 +390,8 @@ function DurationSheet({ visible, defaultMinutes, onCancel, onValidate }: Durati
   }, [visible]);
 
   const minutes = Number.parseInt(value, 10);
-  // Bornée au maximum du DTO : valider 9 999 laisserait croire à une séance de
-  // sept jours pour un corps qui en porterait un.
+  // Bornée au maximum du DTO : valider 9 999 ferait durer une semaine une
+  // séance dont le corps ne porte qu'une journée.
   const canValidate =
     Number.isInteger(minutes) && minutes > 0 && minutes <= DURATION_MAX_MIN;
 

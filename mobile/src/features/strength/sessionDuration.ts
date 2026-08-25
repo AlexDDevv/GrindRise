@@ -40,7 +40,7 @@ export function elapsedMinutes(startedAt: number, now: number): number {
  * Ramène une durée aux bornes du DTO, à la minute entière.
  *
  * Exportée pour que la correction manuelle soit écrêtée **à l'écriture** et
- * plus seulement à l'envoi : sinon l'en-tête annonce la valeur tapée, le corps
+ * non plus seulement à l'envoi : sinon l'en-tête annonce la valeur tapée, le corps
  * envoie la valeur écrêtée, et l'écran de fin en affiche une troisième.
  */
 export function clampDurationMin(minutes: number): number {

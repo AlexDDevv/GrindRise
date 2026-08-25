@@ -170,7 +170,7 @@ function readInteger(raw: string, min: number, max: number): number | null {
  */
 const decimalise = (raw: string): string => raw.replaceAll(',', '.');
 
-/** @returns la charge, `null` si le champ est vide ou nul, `'invalide'` sinon. */
+/** @returns la charge, `null` si le champ est vide ou à zéro, `'invalide'` sinon. */
 function readWeight(raw: string): number | null | 'invalide' {
   const trimmed = raw.trim();
   // Vide n'est pas zéro : ce sera un champ omis, pas une charge déclarée.
