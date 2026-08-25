@@ -154,11 +154,20 @@ function readInteger(raw: string, min: number, max: number): number | null {
   const trimmed = raw.trim();
   if (trimmed === '') return null;
 
-  const value = Number(trimmed.replace(',', '.'));
+  const value = Number(decimalise(trimmed));
   if (!Number.isInteger(value) || value < min || value > max) return null;
 
   return value;
 }
+
+/**
+ * La virgule du clavier français, **toutes** les virgules.
+ *
+ * `replace` n'en remplacerait que la première : « 1,2,5 » deviendrait « 1.2,5 »,
+ * que `Number` lit `NaN` — mais par accident, et « 1,2,5,3 » aurait pu passer
+ * pour 1,2. Les remplacer toutes fait rejeter la saisie pour ce qu'elle est.
+ */
+const decimalise = (raw: string): string => raw.replaceAll(',', '.');
 
 /** @returns la charge, `null` si le champ est vide, `'invalide'` sinon. */
 function readWeight(raw: string): number | null | 'invalide' {
@@ -166,7 +175,7 @@ function readWeight(raw: string): number | null | 'invalide' {
   // Vide n'est pas zéro : ce sera un champ omis, pas une charge déclarée.
   if (trimmed === '') return null;
 
-  const value = Number(trimmed.replace(',', '.'));
+  const value = Number(decimalise(trimmed));
   if (!Number.isFinite(value) || value < WEIGHT_MIN || value > WEIGHT_MAX) {
     return 'invalide';
   }
