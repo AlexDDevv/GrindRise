@@ -25,6 +25,8 @@ import { SetEditorSheet } from '../components/SetEditorSheet';
 import { muscleGroupLabel } from '../muscleGroups';
 import { computeSessionStats } from '../sessionStats';
 import {
+  MAX_EXERCISES,
+  canAddExercise,
   canAddSet as canAddSetTo,
   emptyExerciseNames,
   lastSetOf,
@@ -181,6 +183,7 @@ export function StrengthSessionScreen() {
   };
 
   const manquants = emptyExerciseNames(session);
+  const peutAjouterUnExercice = canAddExercise(session);
 
   return (
     <Screen
@@ -258,11 +261,29 @@ export function StrengthSessionScreen() {
       {session.reordering ? null : (
         <Pressable
           onPress={() => navigation.navigate('ExerciseCatalog')}
+          // Éteint au plafond plutôt que muet : ouvrir le catalogue laisserait
+          // choisir un exercice, refermerait l'écran, et n'ajouterait rien —
+          // `addExercise` rend l'état inchangé passé `MAX_EXERCISES`.
+          disabled={!peutAjouterUnExercice}
           accessibilityRole="button"
-          accessibilityLabel="Ajouter un exercice"
+          accessibilityLabel={
+            peutAjouterUnExercice
+              ? 'Ajouter un exercice'
+              : `Séance complète : ${MAX_EXERCISES} exercices au maximum`
+          }
+          accessibilityState={{ disabled: !peutAjouterUnExercice }}
           style={styles.addExercise}
         >
-          <Text style={typography.sans.bodySmall}>+ Ajouter un exercice</Text>
+          <Text
+            style={[
+              typography.sans.bodySmall,
+              peutAjouterUnExercice ? null : styles.addExerciseDisabled,
+            ]}
+          >
+            {peutAjouterUnExercice
+              ? '+ Ajouter un exercice'
+              : `Séance complète : ${MAX_EXERCISES} exercices au maximum`}
+          </Text>
         </Pressable>
       )}
 
@@ -397,6 +418,9 @@ const styles = StyleSheet.create({
     borderWidth: border.hairline,
     borderColor: colors.line.control,
     borderStyle: 'dashed',
+  },
+  addExerciseDisabled: {
+    color: colors.text.label,
   },
   backdrop: {
     flex: 1,
