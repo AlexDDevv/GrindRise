@@ -19,7 +19,7 @@ export type Exercise = Database['public']['Tables']['exercises']['Row'];
  * `useReferenceData` — pensé pour des tables constantes entre deux déploiements
  * — ne convient pas ici.
  *
- * La recherche est débattue pour espacer les requêtes, mais c'est un compteur
+ * La recherche est temporisée pour espacer les requêtes, mais c'est un compteur
  * de requêtes (`requestId`) qui empêche l'affichage dans le désordre : une
  * frappe ancienne partie sur un réseau lent peut répondre après une frappe
  * plus récente, et la temporisation seule ne s'en protège pas.
@@ -80,7 +80,7 @@ export function useExerciseCatalog() {
     }
   }, []);
 
-  // Débattu à la frappe : une requête par caractère saturerait l'API.
+  // Temporisée à la frappe : une requête par caractère saturerait l'API.
   useEffect(() => {
     const timer = setTimeout(() => void load(search, muscleGroup), SEARCH_DEBOUNCE_MS);
 
