@@ -18,7 +18,7 @@ import type { LogStackParamList, MainTabParamList } from '../../../navigation/ty
 import { useLevelCurve } from '../../progression/useLevelCurve';
 import { useUserStore } from '../../../store/userStore';
 import { WorkoutCelebration } from '../../workouts/WorkoutCelebration';
-import type { StrengthStats, WorkoutResult } from '../../workouts/workoutApi';
+import type { StrengthStats } from '../../workouts/workoutApi';
 import { formatDurationLabel } from '../sessionDuration';
 
 /**
