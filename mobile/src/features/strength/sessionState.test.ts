@@ -11,6 +11,7 @@ import {
   moveExercise,
   removeExercise,
   removeSet,
+  setDurationOverride,
   setReordering,
   toggleCollapsed,
   updateSet,
@@ -209,6 +210,31 @@ describe('lastSetOf', () => {
 
   it('rend null sur un exercice sans série', () => {
     expect(lastSetOf(addExercise(vide(), DEVELOPPE, 'k1'), 'k1')).toBeNull();
+  });
+});
+
+describe('setDurationOverride', () => {
+  it('pose la correction telle quelle quand elle est plausible', () => {
+    expect(setDurationOverride(vide(), 52).durationOverrideMin).toBe(52);
+  });
+
+  it('écrête au maximum du DTO : la valeur affichée est celle qui partira', () => {
+    // Le défaut réparé ici : 9 999 s'affichait dans l'en-tête, 1 440 partait,
+    // et l'écran de fin annonçait « 24 h ». Trois valeurs pour un geste.
+    expect(setDurationOverride(vide(), 9_999).durationOverrideMin).toBe(1_440);
+  });
+
+  it('remonte zéro et les négatifs à la minute, borne basse du DTO', () => {
+    // `@Min(1)` sur `durationMin` : un 0 serait refusé par un 400.
+    expect(setDurationOverride(vide(), 0).durationOverrideMin).toBe(1);
+    expect(setDurationOverride(vide(), -30).durationOverrideMin).toBe(1);
+  });
+
+  it('ne modifie pas l’état reçu', () => {
+    const avant = vide();
+    setDurationOverride(avant, 52);
+
+    expect(avant.durationOverrideMin).toBeNull();
   });
 });
 

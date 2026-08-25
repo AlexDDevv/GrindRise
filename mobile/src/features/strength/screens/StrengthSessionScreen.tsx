@@ -32,6 +32,7 @@ import {
   lastSetOf,
 } from '../sessionState';
 import {
+  DURATION_MAX_MIN,
   formatDurationLabel,
   formatStopwatch,
   isImplausible,
@@ -141,9 +142,11 @@ export function StrengthSessionScreen() {
   };
 
   const stats = useMemo(() => computeSessionStats(session.exercises), [session.exercises]);
+  // La correction est déjà écrêtée dans le store : l'en-tête montre donc la
+  // durée qui partira, écrite comme l'écran de fin l'écrira.
   const stopwatch = session.durationOverrideMin === null
     ? formatStopwatch(session.startedAt, now)
-    : `${session.durationOverrideMin} min`;
+    : formatDurationLabel(session.durationOverrideMin);
 
   const editedExercise = session.exercises.find((e) => e.key === editing?.exerciseKey) ?? null;
 
@@ -365,7 +368,10 @@ function DurationSheet({ visible, defaultMinutes, onCancel, onValidate }: Durati
   }, [visible]);
 
   const minutes = Number.parseInt(value, 10);
-  const canValidate = Number.isInteger(minutes) && minutes > 0;
+  // Bornée au maximum du DTO : valider 9 999 laisserait croire à une séance de
+  // sept jours pour un corps qui en porterait un.
+  const canValidate =
+    Number.isInteger(minutes) && minutes > 0 && minutes <= DURATION_MAX_MIN;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>

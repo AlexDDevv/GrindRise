@@ -2,6 +2,7 @@ import { createSession } from './sessionState';
 import {
   DURATION_MAX_MIN,
   IMPLAUSIBLE_DURATION_MIN,
+  clampDurationMin,
   elapsedMinutes,
   formatDurationLabel,
   formatStopwatch,
@@ -50,6 +51,20 @@ describe('sessionDurationMin', () => {
     expect(sessionDurationMin(seance({ durationOverrideMin: 9_999 }), 0)).toBe(
       DURATION_MAX_MIN,
     );
+  });
+});
+
+describe('clampDurationMin', () => {
+  it('tient les deux bornes du DTO, `@Min(1)` et `@Max(1_440)`', () => {
+    expect(clampDurationMin(0)).toBe(1);
+    expect(clampDurationMin(-30)).toBe(1);
+    expect(clampDurationMin(52)).toBe(52);
+    expect(clampDurationMin(9_999)).toBe(DURATION_MAX_MIN);
+  });
+
+  it('rend une minute entière : le DTO n’accepte pas de décimale', () => {
+    expect(clampDurationMin(51.4)).toBe(51);
+    expect(clampDurationMin(51.6)).toBe(52);
   });
 });
 

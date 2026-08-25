@@ -1,3 +1,4 @@
+import { clampDurationMin } from './sessionDuration';
 import type {
   SessionExercise,
   SessionExerciseInput,
@@ -129,6 +130,17 @@ export function lastSetOf(state: SessionState, key: string): SetDraft | null {
   const sets = state.exercises.find((e) => e.key === key)?.sets ?? [];
 
   return sets.length === 0 ? null : sets[sets.length - 1];
+}
+
+/**
+ * Corrige la durée de la séance à la main.
+ *
+ * L'écrêtage a lieu ici et pas seulement au moment d'envoyer : la valeur
+ * corrigée s'affiche dans l'en-tête dès qu'elle est posée, et une valeur
+ * affichée doit être celle qui partira.
+ */
+export function setDurationOverride(state: SessionState, minutes: number): SessionState {
+  return { ...state, durationOverrideMin: clampDurationMin(minutes) };
 }
 
 /**

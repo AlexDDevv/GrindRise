@@ -36,11 +36,20 @@ export function elapsedMinutes(startedAt: number, now: number): number {
   return Math.max(DURATION_MIN_MIN, elapsed);
 }
 
+/**
+ * Ramène une durée aux bornes du DTO, à la minute entière.
+ *
+ * Exportée pour que la correction manuelle soit écrêtée **à l'écriture** et
+ * plus seulement à l'envoi : sinon l'en-tête annonce la valeur tapée, le corps
+ * envoie la valeur écrêtée, et l'écran de fin en affiche une troisième.
+ */
+export function clampDurationMin(minutes: number): number {
+  return Math.min(DURATION_MAX_MIN, Math.max(DURATION_MIN_MIN, Math.round(minutes)));
+}
+
 /** La correction si elle existe, le chrono sinon ; toujours dans les bornes. */
 export function sessionDurationMin(state: SessionState, now: number): number {
-  const minutes = state.durationOverrideMin ?? elapsedMinutes(state.startedAt, now);
-
-  return Math.min(DURATION_MAX_MIN, Math.max(DURATION_MIN_MIN, Math.round(minutes)));
+  return clampDurationMin(state.durationOverrideMin ?? elapsedMinutes(state.startedAt, now));
 }
 
 export function isImplausible(minutes: number): boolean {

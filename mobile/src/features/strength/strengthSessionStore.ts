@@ -74,5 +74,5 @@ export const useStrengthSessionStore = create<StrengthSessionStore>((set) => ({
     set((s) => ({ session: session.removeSet(s.session, key, index) })),
 
   setDurationOverride: (minutes) =>
-    set((s) => ({ session: { ...s.session, durationOverrideMin: minutes } })),
+    set((s) => ({ session: session.setDurationOverride(s.session, minutes) })),
 }));
