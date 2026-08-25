@@ -104,6 +104,11 @@ export function StrengthSessionScreen() {
   const { submit, isSubmitting, error: submitError } = useSubmitSession();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [durationSheetOpen, setDurationSheetOpen] = useState(false);
+  // Une ligne est saisie : le glisser de `ReorderableList` tourne sur un
+  // `PanResponder` en thread JS, et le `ScrollView` de l'écran lui disputerait
+  // le geste. Le mode réordonnancement entier reste défilable — trente lignes
+  // dépassent l'écran, et les dernières seraient sinon hors d'atteinte.
+  const [dragging, setDragging] = useState(false);
 
   /**
    * Envoie la séance, puis remplace la pile par l'écran de fin.
@@ -202,11 +207,7 @@ export function StrengthSessionScreen() {
   return (
     <Screen
       onBack={() => navigation.goBack()}
-      // Le défilement se coupe pendant le réordonnancement : le glisser de
-      // `ReorderableList` tourne sur un `PanResponder` en thread JS, et un
-      // `ScrollView` vertical au-dessus lui disputerait le geste à chaque
-      // déplacement. Hors de ce mode, les cartes dépliées doivent défiler.
-      scroll={!session.reordering}
+      scrollEnabled={!dragging}
       footer={
         <>
           {session.exercises.length > 0 ? (
@@ -252,6 +253,7 @@ export function StrengthSessionScreen() {
           keyOf={(exercise) => exercise.key}
           rowHeight={touchTarget.row}
           onMove={moveExercise}
+          onDragChange={setDragging}
           renderItem={(exercise, index, handle) => (
             <ExerciseListItem
               name={exercise.name}
