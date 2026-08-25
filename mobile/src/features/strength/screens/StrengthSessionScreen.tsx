@@ -154,7 +154,7 @@ export function StrengthSessionScreen() {
 
   const stats = useMemo(() => computeSessionStats(session.exercises), [session.exercises]);
   // La correction est déjà écrêtée dans le store : l'en-tête montre donc la
-  // durée qui partira, écrite comme l'écran de fin l'écrira.
+  // durée qui partira, dans la même écriture que l'écran de fin.
   const stopwatch = session.durationOverrideMin === null
     ? formatStopwatch(session.startedAt, now)
     : formatDurationLabel(session.durationOverrideMin);

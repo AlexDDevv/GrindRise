@@ -163,9 +163,10 @@ function readInteger(raw: string, min: number, max: number): number | null {
 /**
  * La virgule du clavier français, **toutes** les virgules.
  *
- * `replace` n'en remplacerait que la première : « 1,2,5 » deviendrait « 1.2,5 »,
- * que `Number` lit `NaN` — mais par accident, et « 1,2,5,3 » aurait pu passer
- * pour 1,2. Les remplacer toutes fait rejeter la saisie pour ce qu'elle est.
+ * `replace` n'en remplaçait que la première : « 1,2,5 » devenait « 1.2,5 », que
+ * `Number` refusait — non pour ce que valait la saisie, mais parce qu'il y
+ * restait une virgule. Les remplacer toutes fait juger la saisie sur ce qu'elle
+ * est, et non sur ce qui a survécu au remplacement.
  */
 const decimalise = (raw: string): string => raw.replaceAll(',', '.');
 

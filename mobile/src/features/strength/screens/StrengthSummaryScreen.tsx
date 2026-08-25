@@ -59,8 +59,9 @@ export function StrengthSummaryScreen() {
    * Le tableau de bord est un onglet, pas une route de cette pile : il faut
    * remonter au navigateur parent pour l'atteindre. Et `popToTop` d'abord,
    * sinon l'onglet « Séance » resterait posé sur ce résumé — `finish` a réduit
-   * la pile à `[SportChoice, StrengthSummary]`, la dépiler la rend au sélecteur
-   * de sport sans jamais rouvrir la séance envoyée, qui n'y est plus.
+   * la pile à `[SportChoice, StrengthSummary]`, et la dépiler ramène l'onglet
+   * sur le sélecteur de sport sans jamais rouvrir la séance envoyée, qui n'y
+   * est plus.
    */
   const returnToDashboard = () => {
     navigation.popToTop();

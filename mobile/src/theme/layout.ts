@@ -46,7 +46,7 @@ export const padding = {
   /**
    * Pas de rembourrage. Même raison d'être que `radius.none` et `border.none` :
    * rendre le zéro lisible comme une décision. Ici, c'est la boîte enveloppante
-   * qui rembourre, et le cumuler décalerait ce qu'elle contient.
+   * qui porte le rembourrage ; le cumuler décalerait ce qu'elle contient.
    */
   none: 0,
 } as const;
