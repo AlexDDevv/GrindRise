@@ -84,12 +84,20 @@ export function SetEditorSheet({
 
   // Remis à l'ouverture, et pas au montage : la feuille reste montée entre deux
   // séries, donc un `useState` initial garderait la saisie précédente.
+  //
+  // Une nouvelle série s'ouvre dans le type de la précédente : sur un gainage
+  // au temps, repartir en répétitions coûterait deux gestes à chaque série,
+  // alors même que la colonne de la carte affiche déjà « TEMPS ».
+  //
+  // `previous` est aussi stable que `initial` — c'est une référence détenue par
+  // le store, que le tic du chrono ne reconstruit pas — donc le mettre en
+  // dépendance ne rouvre pas la feuille sous la saisie en cours.
   useEffect(() => {
     if (!visible) return;
 
-    setDraft(initial === null ? emptyDraft() : draftFrom(initial));
+    setDraft(initial === null ? emptyDraft(previous?.type) : draftFrom(initial));
     setError(null);
-  }, [visible, initial]);
+  }, [visible, initial, previous]);
 
   const isTime = draft.type === 'time';
 
