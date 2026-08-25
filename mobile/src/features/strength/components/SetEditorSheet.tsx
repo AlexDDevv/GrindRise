@@ -101,6 +101,14 @@ export function SetEditorSheet({
 
   const isTime = draft.type === 'time';
 
+  // « Reprendre la précédente » vaut dans les deux modes : `repeatOf` délègue à
+  // `draftFrom`, qui rend le type de la série reprise. La réserver aux
+  // répétitions faisait retaper 45 à chaque série d'un gainage 3 × 45 s.
+  const previousChip =
+    previous === null ? null : (
+      <Chip label={labelOfPrevious(previous)} onPress={() => setDraft(repeatOf(previous))} />
+    );
+
   const validate = () => {
     const result = parseDraft(draft);
 
@@ -196,17 +204,13 @@ export function SetEditorSheet({
                     onPress={() => setDraft((d) => ({ ...d, count: String(seconds) }))}
                   />
                 ))}
+                {previousChip}
               </Shortcuts>
             ) : (
               <Shortcuts label="RACCOURCIS">
                 <Chip label="−1" onPress={() => setDraft((d) => step(d, -1))} />
                 <Chip label="+1" onPress={() => setDraft((d) => step(d, 1))} />
-                {previous ? (
-                  <Chip
-                    label={labelOfPrevious(previous)}
-                    onPress={() => setDraft(repeatOf(previous))}
-                  />
-                ) : null}
+                {previousChip}
               </Shortcuts>
             )}
 
