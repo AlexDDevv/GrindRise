@@ -45,6 +45,11 @@ type Props = {
   footer?: React.ReactNode;
   /** Faux pour un contenu qui gère son propre défilement (liste virtualisée). */
   scroll?: boolean;
+  /**
+   * Faux pour suspendre le défilement sans démonter le `ScrollView` : `scroll`
+   * choisit le composant, `scrollEnabled` dit seulement s'il défile.
+   */
+  scrollEnabled?: boolean;
   /** Vrai sur un écran de saisie : remonte le contenu au-dessus du clavier. */
   avoidKeyboard?: boolean;
   children?: React.ReactNode;
@@ -57,6 +62,7 @@ export function Screen({
   onBack,
   footer,
   scroll = true,
+  scrollEnabled = true,
   avoidKeyboard = false,
   children,
 }: Props) {
@@ -88,6 +94,7 @@ export function Screen({
       ]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
+      scrollEnabled={scrollEnabled}
     >
       {head}
       {children}
