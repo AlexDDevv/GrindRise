@@ -71,7 +71,9 @@ function Count({ set }: { set: SetDraft | null }) {
     // déjà, le texte visible doit s'aligner dessus.
     <Value value={String(set.reps)} unit={repsUnit(set.reps)} />
   ) : (
-    <Value value={formatSeconds(set.durationSeconds)} unit="min" />
+    // Sans unité : `0:45` se lit déjà comme une durée, et la colonne dit
+    // « TEMPS ». Un « min » collé à une planche de 45 secondes serait faux.
+    <Value value={formatSeconds(set.durationSeconds)} />
   );
 }
 
@@ -111,11 +113,12 @@ function renderLoad(set: SetDraft | null) {
   );
 }
 
-function Value({ value, unit }: { value: string; unit: string }) {
+/** @param unit omise quand la valeur porte déjà son sens, comme `2:05`. */
+function Value({ value, unit }: { value: string; unit?: string }) {
   return (
     <Text style={typography.sans.metric} numberOfLines={1}>
       {value}
-      <Text style={typography.sans.unit}> {unit}</Text>
+      {unit ? <Text style={typography.sans.unit}> {unit}</Text> : null}
     </Text>
   );
 }
