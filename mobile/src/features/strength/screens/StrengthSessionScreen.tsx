@@ -130,7 +130,8 @@ export function StrengthSessionScreen() {
    * refaire le geste de validation.
    *
    * La durée est relue ici et non prise dans `now` : ce tic peut dater d'une
-   * seconde, et c'est celle que `toWorkoutPayload` calculera qu'on annonce.
+   * seconde, et le libellé doit annoncer exactement la valeur que
+   * `toWorkoutPayload` enverra.
    */
   const finish = () => {
     const minutes = sessionDurationMin(session, Date.now());
@@ -142,7 +143,7 @@ export function StrengthSessionScreen() {
 
     Alert.alert(
       `Cette séance a duré ${formatDurationLabel(minutes)} ?`,
-      'Le chrono tourne depuis l’ouverture de la séance. Corrige la durée si tu as oublié de la terminer.',
+      'Le chrono tourne depuis l’ouverture de la séance. Corrige-la si tu as oublié de terminer la séance.',
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Corriger', onPress: () => setDurationSheetOpen(true) },
