@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, StyleSheet, View } from 'react-native';
 
 import { border, colors, reorder, shadow } from '../../theme';
@@ -127,6 +127,23 @@ export function ReorderableList<T>({
     [],
   );
 
+  /**
+   * Le décalage retombe à zéro APRÈS le commit, jamais pendant le geste.
+   *
+   * `translateY.setValue` écrit droit sur la vue native, hors du cycle de
+   * rendu. Appelée au relâchement, elle s'appliquait donc avant que React
+   * n'ait commité la liste réordonnée : la ligne saisie claquait à son ancien
+   * emplacement le temps d'une frame, puis ressautait au nouveau. Un effet de
+   * disposition tombe dans le même commit que le nouvel ordre, et avant
+   * l'affichage — les deux mouvements n'en font plus qu'un.
+   *
+   * Il dépend de `drag` et non de `data` : relâcher sans avoir changé l'ordre
+   * ne touche pas aux données, et le décalage resterait à l'écran.
+   */
+  useLayoutEffect(() => {
+    if (drag === null) translateY.setValue(0);
+  }, [drag, translateY]);
+
   const responder = useMemo(
     () =>
       PanResponder.create({
@@ -171,7 +188,6 @@ export function ReorderableList<T>({
             onMoveRef.current(current.from, current.from + current.offset);
           }
 
-          translateY.setValue(0);
           setDragState(null);
         },
 
@@ -179,7 +195,6 @@ export function ReorderableList<T>({
         // une ligne décalée à l'écran.
         onPanResponderTerminate: () => {
           setArmed(null);
-          translateY.setValue(0);
           setDragState(null);
         },
       }),
