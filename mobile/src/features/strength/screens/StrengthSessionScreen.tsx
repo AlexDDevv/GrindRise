@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { LogStackParamList } from '../../../navigation/types';
@@ -9,6 +9,7 @@ import { ErrorNotice } from '../../../components/Feedback';
 import { Screen } from '../../../components/Screen';
 import { TextField } from '../../../components/TextField';
 import { Button, ReorderableList } from '../../../components/ui';
+import type { EdgeScroller } from '../../../components/ui';
 import {
   border,
   colors,
@@ -109,6 +110,10 @@ export function StrengthSessionScreen() {
   // au long du mode : trente lignes dépassent l'écran, et les dernières
   // seraient sinon hors d'atteinte.
   const [grabbed, setGrabbed] = useState(false);
+  // Le `ScrollView` de l'écran, prêté à la liste : glisser un exercice jusqu'au
+  // bord doit faire venir ce qui est hors écran, sans quoi un déplacement long
+  // demanderait de relâcher, défiler et ressaisir.
+  const scroller = useRef<EdgeScroller>(null);
 
   /**
    * Envoie la séance, puis remplace la pile par l'écran de fin.
@@ -208,6 +213,7 @@ export function StrengthSessionScreen() {
     <Screen
       onBack={() => navigation.goBack()}
       scrollEnabled={!grabbed}
+      scrollerRef={scroller}
       footer={
         <>
           {session.exercises.length > 0 ? (
@@ -254,6 +260,7 @@ export function StrengthSessionScreen() {
           rowHeight={touchTarget.row}
           onMove={moveExercise}
           onGrabChange={setGrabbed}
+          scroller={scroller}
           renderItem={(exercise, index, handle) => (
             <ExerciseListItem
               name={exercise.name}

@@ -245,6 +245,24 @@ export const reorder = {
    * `ScrollView` parent qui aurait le temps de reconnaître un défilement.
    */
   dragThreshold: 2,
+  /**
+   * Bande, à chaque bord de la zone visible, où le glisser fait défiler la
+   * liste tout seul.
+   *
+   * Un cran au-dessus d'une ligne : le doigt doit pouvoir y entrer franchement
+   * sans que la dernière ligne atteignable devienne inaccessible.
+   */
+  edgeBand: 72,
+  /**
+   * Défilement automatique maximal, en points **par seconde**, atteint quand le
+   * doigt touche le bord. La vitesse croît sur toute la bande, sans quoi le
+   * défilement démarrerait d'un coup.
+   *
+   * Par seconde et non par image : le glisser tourne en thread JS, qui perd des
+   * images dès que la liste se redessine. Compté par image, le défilement
+   * ralentissait exactement quand il servait le plus.
+   */
+  edgeSpeed: 800,
 } as const;
 
 /**

@@ -1,5 +1,5 @@
 import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
-import { useContext } from 'react';
+import { useContext, useImperativeHandle, useRef } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, gap, spacing, typography } from '../theme';
 import { Button } from './ui';
+import type { EdgeScroller } from './ui';
 
 /**
  * Ossature commune à tous les écrans.
@@ -50,6 +51,14 @@ type Props = {
    * choisit le composant, `scrollEnabled` dit seulement s'il défile.
    */
   scrollEnabled?: boolean;
+  /**
+   * Reçoit de quoi piloter le défilement à la main, image par image — ce qu'une
+   * liste réordonnable demande pour atteindre ce qui est hors écran.
+   *
+   * Sans effet quand `scroll` est faux : il n'y a alors pas de `ScrollView` à
+   * piloter.
+   */
+  scrollerRef?: React.Ref<EdgeScroller>;
   /** Vrai sur un écran de saisie : remonte le contenu au-dessus du clavier. */
   avoidKeyboard?: boolean;
   children?: React.ReactNode;
@@ -63,10 +72,46 @@ export function Screen({
   footer,
   scroll = true,
   scrollEnabled = true,
+  scrollerRef,
   avoidKeyboard = false,
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
+
+  const scrollView = useRef<ScrollView>(null);
+  const frame = useRef<View>(null);
+  // La position et les deux hauteurs qui la bornent, tenues en refs : le
+  // pilotage se fait à chaque image, et un état les ferait rendre autant de
+  // fois.
+  const offset = useRef(0);
+  const viewport = useRef(0);
+  const content = useRef(0);
+
+  useImperativeHandle(
+    scrollerRef,
+    () => ({
+      // Sur la vue qui encadre le `ScrollView`, et non sur lui : c'est elle qui
+      // porte des coordonnées de fenêtre exploitables sur les deux plateformes.
+      measure: (onDone) => {
+        frame.current?.measureInWindow((_x, y, _width, height) => {
+          onDone({ top: y, bottom: y + height });
+        });
+      },
+      scrollBy: (dy) => {
+        const max = Math.max(0, content.current - viewport.current);
+        const next = Math.min(max, Math.max(0, offset.current + dy));
+        const moved = next - offset.current;
+        if (moved === 0) return 0;
+
+        // Noté d'avance : `onScroll` ne confirmera la position qu'à l'image
+        // suivante, et l'appel d'ici là repartirait d'une valeur périmée.
+        offset.current = next;
+        scrollView.current?.scrollTo({ y: next, animated: false });
+        return moved;
+      },
+    }),
+    [],
+  );
 
   // Sous une barre d'onglets, l'inset bas est déjà absorbé par la barre :
   // l'ajouter une seconde fois creuserait un vide au-dessus d'elle. Le contexte
@@ -85,20 +130,50 @@ export function Screen({
     ) : null;
 
   const body = scroll ? (
-    <ScrollView
-      contentContainerStyle={[
-        styles.content,
-        // Sans footer, la dernière carte doit pouvoir remonter au-dessus du
-        // bord physique de l'écran.
-        footer ? null : { paddingBottom: bottomInset + spacing.block },
-      ]}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      scrollEnabled={scrollEnabled}
-    >
-      {head}
-      {children}
-    </ScrollView>
+    // `collapsable={false}` : sans lui, Android fond cette vue dans son parent
+    // au motif qu'elle ne peint rien, et il ne reste plus rien à mesurer.
+    <View ref={frame} style={styles.fill} collapsable={false}>
+      <ScrollView
+        ref={scrollView}
+        contentContainerStyle={[
+          styles.content,
+          // Sans footer, la dernière carte doit pouvoir remonter au-dessus du
+          // bord physique de l'écran.
+          footer ? null : { paddingBottom: bottomInset + spacing.block },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={scrollEnabled}
+        // Les trois hauteurs du pilotage manuel. `onScroll` les rafraîchit
+        // toutes, mais il ne se déclenche qu'au premier défilement : les deux
+        // autres rappels les donnent dès le montage, quand personne n'a encore
+        // rien fait défiler.
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+          viewport.current = layoutMeasurement.height;
+          content.current = contentSize.height;
+
+          // La position, elle, n'est reprise que si personne ne pilote. Un
+          // `scrollTo` met une image à se voir ici : la reprendre pendant le
+          // pilotage ferait repartir l'image suivante d'une valeur périmée, qui
+          // redemanderait la position déjà demandée tout en la comptant comme
+          // acquise. Le cumul dérivait, puis se recalait — la ligne saisie
+          // tremblait. `scrollEnabled` est faux exactement pendant ce
+          // pilotage.
+          if (scrollEnabled) offset.current = contentOffset.y;
+        }}
+        onLayout={(event) => {
+          viewport.current = event.nativeEvent.layout.height;
+        }}
+        onContentSizeChange={(_width, height) => {
+          content.current = height;
+        }}
+      >
+        {head}
+        {children}
+      </ScrollView>
+    </View>
   ) : (
     <View style={[styles.content, styles.fill]}>
       {head}

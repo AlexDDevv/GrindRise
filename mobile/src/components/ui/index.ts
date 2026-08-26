@@ -12,7 +12,7 @@ export { LevelUpModal } from './LevelUpModal';
 export { SegmentedControl } from './SegmentedControl';
 export { Switch } from './Switch';
 export { ReorderableList } from './ReorderableList';
-export type { ReorderHandle } from './ReorderableList';
+export type { EdgeBounds, EdgeScroller, ReorderHandle } from './ReorderableList';
 
 export { Hexagon } from './Hexagon';
 export { CutCornerSurface } from './CutCornerSurface';
