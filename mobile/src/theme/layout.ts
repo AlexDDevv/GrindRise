@@ -259,6 +259,14 @@ export const exerciseRow = {
   gripBar: { width: 12, height: 2 },
   /** Écart entre deux filets de la poignée. */
   gripGap: 3,
+  /**
+   * Débord tactile de la poignée, de chaque côté.
+   *
+   * Les trois filets font douze points de côté, et les grossir écarterait le
+   * texte de la ligne : le débord porte la cible aux quarante-quatre points de
+   * `touchTarget.minimum` sans rien déplacer.
+   */
+  gripHitSlop: 16,
   /** Rembourrage vertical de l'étiquette « À MOI ». */
   ownedBadgeY: 2,
 } as const;

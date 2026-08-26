@@ -40,13 +40,15 @@ export function ExerciseListItem({ name, subtitle, owned, onPress, handle }: Pro
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={handle?.onPressIn}
-      onPressOut={handle?.onPressOut}
-      accessibilityRole="button"
+      // En réordonnancement la ligne n'a aucune action propre — seule la
+      // poignée en a une. La laisser pressable donnerait un retour d'appui qui
+      // ne mène nulle part, et l'annoncerait comme un bouton.
+      disabled={onPress === undefined}
+      accessibilityRole={onPress === undefined ? 'text' : 'button'}
       accessibilityLabel={owned ? `${name}, exercice personnel` : name}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
-      {handle ? <Grip /> : null}
+      {handle ? <Grip handle={handle} name={name} /> : null}
 
       <View style={styles.text}>
         <Text style={typography.sans.body} numberOfLines={1}>
@@ -64,14 +66,34 @@ export function ExerciseListItem({ name, subtitle, owned, onPress, handle }: Pro
   );
 }
 
-/** Trois filets : le geste de réordonnancement se saisit là et nulle part ailleurs. */
-function Grip() {
+/**
+ * Trois filets : le geste de réordonnancement se saisit là et nulle part
+ * ailleurs.
+ *
+ * Là et nulle part ailleurs, littéralement : armer depuis la ligne entière
+ * suspendait le défilement dès qu'un doigt s'y posait, et tout glissement
+ * vertical devenait un déplacement — une liste plus haute que l'écran était
+ * alors impossible à parcourir dans ce mode. Le reste de la ligne rend donc le
+ * geste au `ScrollView`.
+ *
+ * La cible tactile vient de `hitSlop` et non de la taille de la vue : élargir
+ * les filets écarterait le texte de la ligne. Le débord mord de quatre points
+ * sur le nom, sans conséquence puisque la ligne n'a rien à répondre ici.
+ */
+function Grip({ handle, name }: { handle: ReorderHandle; name: string }) {
   return (
-    <View style={styles.grip}>
+    <Pressable
+      onPressIn={handle.onPressIn}
+      onPressOut={handle.onPressOut}
+      hitSlop={exerciseRow.gripHitSlop}
+      accessibilityRole="button"
+      accessibilityLabel={`Déplacer ${name}`}
+      style={styles.grip}
+    >
       <View style={styles.gripBar} />
       <View style={styles.gripBar} />
       <View style={styles.gripBar} />
-    </View>
+    </Pressable>
   );
 }
 
