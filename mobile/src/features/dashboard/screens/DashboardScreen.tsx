@@ -1,12 +1,17 @@
 import { useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ErrorNotice, LoadingState } from '../../../components/Feedback';
 import { Screen } from '../../../components/Screen';
 import { Button, LevelMedallion, WorkoutCard, XpBar } from '../../../components/ui';
 import { formatNumber } from '../../../lib/format';
-import type { MainTabParamList } from '../../../navigation/types';
+import type {
+  DashboardStackParamList,
+  MainTabParamList,
+} from '../../../navigation/types';
 import { useUserStore } from '../../../store/userStore';
 import {
   border,
@@ -38,7 +43,16 @@ import { useRecentWorkouts, type RecentWorkout } from '../useRecentWorkouts';
  * store ne porte pas l'historique.
  */
 export function DashboardScreen() {
-  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList, 'Dashboard'>>();
+  // Deux navigateurs depuis cet écran : la barre d'onglets pour aller loguer une
+  // séance, et sa propre pile pour dérouler l'historique. Le type composé les
+  // expose tous les deux sans avoir à en traverser un pour joindre l'autre.
+  const navigation =
+    useNavigation<
+      CompositeNavigationProp<
+        NativeStackNavigationProp<DashboardStackParamList, 'DashboardHome'>,
+        BottomTabNavigationProp<MainTabParamList>
+      >
+    >();
 
   const progress = useUserStore((s) => s.progress);
   const { progressFor, error: curveError, reload: reloadCurve } = useLevelCurve();
@@ -97,7 +111,22 @@ export function DashboardScreen() {
       />
 
       <View style={styles.section}>
-        <Text style={typography.mono.label}>ACTIVITÉ RÉCENTE</Text>
+        <View style={styles.sectionHead}>
+          <Text style={typography.mono.label}>ACTIVITÉ RÉCENTE</Text>
+
+          {/* « tout voir » de la maquette D1 : les cinq dernières séances
+              suffisent à montrer un rythme, pas à relire un mois. Caché tant
+              qu'il n'y a rien derrière — un lien vers une liste vide ne
+              promet rien de bon. */}
+          {workouts && workouts.length > 0 ? (
+            <Button
+              label="Tout voir"
+              variant="tertiary"
+              size="compact"
+              onPress={() => navigation.navigate('History')}
+            />
+          ) : null}
+        </View>
 
         {workoutsError ? (
           <ErrorNotice message={workoutsError} onRetry={reloadWorkouts} />
@@ -189,6 +218,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: gap.line,
+  },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   section: {
     gap: spacing.list,

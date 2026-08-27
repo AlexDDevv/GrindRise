@@ -65,12 +65,25 @@ export type LogStackParamList = {
 };
 
 /**
+ * Pile de l'onglet « Accueil ».
+ *
+ * L'historique complet est un détail de l'accueil et non une section : on y va
+ * depuis l'activité récente, on en revient. Il n'a donc pas d'onglet — la barre
+ * en porte trois et le quatrième est promis au codex — mais un écran dans cette
+ * pile, comme les programmes en ont un dans celle de la séance.
+ */
+export type DashboardStackParamList = {
+  DashboardHome: undefined;
+  History: undefined;
+};
+
+/**
  * Onglets principaux.
  *
  * Le codex n'y figure pas encore : il viendra dans une étape séparée.
  */
 export type MainTabParamList = {
-  Dashboard: undefined;
+  Dashboard: NavigatorScreenParams<DashboardStackParamList> | undefined;
   Log: NavigatorScreenParams<LogStackParamList> | undefined;
   Profile: undefined;
 };
