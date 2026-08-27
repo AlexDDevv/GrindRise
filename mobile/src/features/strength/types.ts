@@ -47,8 +47,24 @@ export type SessionExercise = SessionExerciseInput & {
   collapsed: boolean;
 };
 
+/**
+ * Le jour type dont la séance est issue, quand elle n'est pas libre.
+ *
+ * Les deux noms voyagent avec l'identifiant plutôt que d'être relus au moment
+ * d'afficher l'en-tête : le jour peut être renommé ou supprimé pendant la
+ * séance, et l'en-tête doit continuer à nommer ce sur quoi l'utilisateur
+ * s'entraîne. Seul `programWorkoutId` part au serveur.
+ */
+export type SessionOrigin = {
+  programWorkoutId: string;
+  programName: string;
+  workoutName: string;
+};
+
 export type SessionState = {
   exercises: SessionExercise[];
+  /** Jour type suivi, ou nul pour une séance libre. */
+  origin: SessionOrigin | null;
   /** Départ du chrono, posé à l'ouverture de la séance. */
   startedAt: number;
   /**

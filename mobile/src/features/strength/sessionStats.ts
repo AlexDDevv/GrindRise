@@ -1,4 +1,4 @@
-import type { SessionExercise, SetDraft } from './types';
+import type { SessionExercise, SessionOrigin, SetDraft } from './types';
 
 /**
  * Statistiques d'une séance en cours, calculées localement.
@@ -127,4 +127,21 @@ export function formatSeconds(total: number): string {
  */
 export function repsUnit(count: number): string {
   return count === 0 || count === 1 ? 'rép.' : 'réps';
+}
+
+/**
+ * Ce que l'en-tête de séance annonce : d'où la séance vient.
+ *
+ * Ici plutôt que dans l'écran parce que c'est une règle d'affichage, avec un
+ * cas limite qui se teste — une séance libre n'a pas d'origine, et le libellé
+ * ne doit pas devenir vide pour autant.
+ *
+ * Le jour avant le programme, à l'inverse de la ligne « DERNIER » de l'écran de
+ * départ : on sait déjà dans quel programme on se trouve, et c'est le jour
+ * qu'on relit entre deux séries.
+ */
+export function originLabel(origin: SessionOrigin | null): string {
+  if (origin === null) return 'SÉANCE LIBRE';
+
+  return `${origin.workoutName} · ${origin.programName}`.toUpperCase();
 }

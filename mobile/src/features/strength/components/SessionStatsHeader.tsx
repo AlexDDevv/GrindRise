@@ -20,14 +20,29 @@ type Props = {
   stats: SessionStats;
   /** Déjà formaté : « 32:14 ». */
   stopwatch: string;
+  /**
+   * D'où vient la séance : « SÉANCE LIBRE », ou « JOUR PUSH · PUSH PULL LEGS ».
+   *
+   * Le jour d'abord, le programme ensuite — l'inverse de la ligne « DERNIER »
+   * de l'écran de départ. Ici on sait déjà dans quel programme on est, et c'est
+   * le jour qu'on relit entre deux séries.
+   */
+  origin: string;
   onPressStopwatch: () => void;
 };
 
-export function SessionStatsHeader({ stats, stopwatch, onPressStopwatch }: Props) {
+export function SessionStatsHeader({
+  stats,
+  stopwatch,
+  origin,
+  onPressStopwatch,
+}: Props) {
   return (
     <View style={styles.header}>
       <View style={styles.top}>
-        <Text style={typography.mono.meta}>SÉANCE LIBRE</Text>
+        <Text style={styles.origin} numberOfLines={1}>
+          {origin}
+        </Text>
 
         <Pressable
           onPress={onPressStopwatch}
@@ -71,6 +86,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: gap.row,
+  },
+  origin: {
+    ...typography.mono.meta,
+    // Tronqué plutôt que repoussant le chrono : « JOUR PUSH · PUSH PULL LEGS »
+    // est bien plus long que « SÉANCE LIBRE », et le chrono ne doit jamais
+    // sortir de l'écran.
+    flex: 1,
   },
   totals: {
     flexDirection: 'row',

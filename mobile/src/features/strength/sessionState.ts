@@ -2,6 +2,7 @@ import { clampDurationMin } from './sessionDuration';
 import type {
   SessionExercise,
   SessionExerciseInput,
+  SessionOrigin,
   SessionState,
   SetDraft,
 } from './types';
@@ -30,7 +31,50 @@ export const MAX_EXERCISES = 30;
 export const MAX_SETS_PER_EXERCISE = 20;
 
 export function createSession(startedAt: number): SessionState {
-  return { exercises: [], startedAt, durationOverrideMin: null, reordering: false };
+  return {
+    exercises: [],
+    origin: null,
+    startedAt,
+    durationOverrideMin: null,
+    reordering: false,
+  };
+}
+
+/**
+ * Une séance préremplie par un jour type — maquette 10, écran ②′.
+ *
+ * Le jour type ne porte que l'ordre des exercices : aucune série, aucune cible.
+ * La séance qui en naît est donc une séance ordinaire dont les cartes sont
+ * déjà posées, et non un mode particulier — tout ce qui suit se saisit, se
+ * réordonne et se supprime comme d'habitude. « Un jour type est un point de
+ * départ, pas un contrat. »
+ *
+ * **Seule la première carte est dépliée.** Cinq cartes ouvertes sur un écran de
+ * six cents points font défiler avant même d'avoir commencé, alors qu'on ne
+ * saisit qu'un exercice à la fois. Les suivantes affichent « Aucune série » et
+ * s'ouvrent d'un appui.
+ *
+ * @param keys une clé locale par exercice, fabriquée par l'appelant — même
+ *   raison que pour `addExercise` : les tirer ici rendrait la fonction impure.
+ */
+export function createSessionFrom(
+  startedAt: number,
+  origin: SessionOrigin,
+  inputs: readonly SessionExerciseInput[],
+  keys: readonly string[],
+): SessionState {
+  // Borné comme un ajout à la main : un jour type est plafonné à 30 exercices
+  // côté serveur, mais rien ne garantit que les deux plafonds resteront égaux.
+  const retenus = inputs.slice(0, MAX_EXERCISES);
+
+  const exercises: SessionExercise[] = retenus.map((input, index) => ({
+    ...input,
+    key: keys[index],
+    sets: [],
+    collapsed: index > 0,
+  }));
+
+  return { exercises, origin, startedAt, durationOverrideMin: null, reordering: false };
 }
 
 export function canAddExercise(state: SessionState): boolean {

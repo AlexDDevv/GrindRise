@@ -42,10 +42,12 @@ export type CreateWorkoutBody = {
   performedAt: string;
   metrics: { durationMin: number };
   exercises: LoggedExerciseBody[];
+  /** Jour type suivi. Omis — jamais nul — pour une séance libre. */
+  programWorkoutId?: string;
 };
 
 export function toWorkoutPayload(state: SessionState, now: number): CreateWorkoutBody {
-  return {
+  const body: CreateWorkoutBody = {
     sportId: STRENGTH_SPORT_ID,
     performedAt: new Date(now).toISOString(),
     metrics: { durationMin: sessionDurationMin(state, now) },
@@ -55,6 +57,12 @@ export function toWorkoutPayload(state: SessionState, now: number): CreateWorkou
       sets: exercise.sets.map(toSetBody),
     })),
   };
+
+  // Omis et non nul : `@IsOptional()` accepte l'absence, alors qu'un `null`
+  // explicite échouerait sur `@IsUUID()`.
+  if (state.origin !== null) body.programWorkoutId = state.origin.programWorkoutId;
+
+  return body;
 }
 
 function toSetBody(set: SetDraft): LoggedSetBody {

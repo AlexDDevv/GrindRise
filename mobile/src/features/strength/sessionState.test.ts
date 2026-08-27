@@ -6,6 +6,7 @@ import {
   canAddExercise,
   canAddSet,
   createSession,
+  createSessionFrom,
   emptyExerciseNames,
   lastSetOf,
   moveExercise,
@@ -41,13 +42,57 @@ const SERIE: SetDraft = {
 const vide = (): SessionState => createSession(0);
 
 describe('createSession', () => {
-  it('ouvre une séance vide, sans correction de durée ni réordonnancement', () => {
+  it('ouvre une séance vide, libre, sans correction de durée ni réordonnancement', () => {
     expect(createSession(1_000)).toEqual({
       exercises: [],
+      origin: null,
       startedAt: 1_000,
       durationOverrideMin: null,
       reordering: false,
     });
+  });
+});
+
+describe('createSessionFrom', () => {
+  const ORIGINE = {
+    programWorkoutId: 'jour-1',
+    programName: 'Push Pull Legs',
+    workoutName: 'Jour Push',
+  };
+
+  it('pose les exercices dans l’ordre reçu, sans aucune série', () => {
+    // Un jour type ne porte que l'ordre : ni séries, ni cibles de répétitions.
+    const state = createSessionFrom(1_000, ORIGINE, [DEVELOPPE, TRACTIONS], ['k1', 'k2']);
+
+    expect(state.exercises.map((e) => e.name)).toEqual([DEVELOPPE.name, TRACTIONS.name]);
+    expect(state.exercises.every((e) => e.sets.length === 0)).toBe(true);
+    expect(state.origin).toEqual(ORIGINE);
+  });
+
+  it('ne déplie que la première carte', () => {
+    // Cinq cartes ouvertes font défiler avant d'avoir commencé, alors qu'on ne
+    // saisit qu'un exercice à la fois.
+    const state = createSessionFrom(1_000, ORIGINE, [DEVELOPPE, TRACTIONS], ['k1', 'k2']);
+
+    expect(state.exercises.map((e) => e.collapsed)).toEqual([false, true]);
+  });
+
+  it('tient le plafond d’exercices d’une séance', () => {
+    const trop = Array.from({ length: MAX_EXERCISES + 5 }, () => DEVELOPPE);
+    const cles = trop.map((_, i) => `k${i}`);
+
+    expect(createSessionFrom(1_000, ORIGINE, trop, cles).exercises).toHaveLength(
+      MAX_EXERCISES,
+    );
+  });
+
+  it('ouvre une séance vide pour un jour type sans exercice', () => {
+    // Un jour créé et jamais rempli : la séance démarre quand même, et le
+    // catalogue s'ouvre depuis l'écran comme pour une séance libre.
+    const state = createSessionFrom(1_000, ORIGINE, [], []);
+
+    expect(state.exercises).toEqual([]);
+    expect(state.origin).toEqual(ORIGINE);
   });
 });
 

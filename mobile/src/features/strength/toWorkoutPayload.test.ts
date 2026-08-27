@@ -1,4 +1,4 @@
-import { addExercise, addSet, createSession } from './sessionState';
+import { addExercise, addSet, createSession, createSessionFrom } from './sessionState';
 import { STRENGTH_SPORT_ID, toWorkoutPayload } from './toWorkoutPayload';
 import type { SessionExerciseInput } from './types';
 
@@ -106,5 +106,39 @@ describe('toWorkoutPayload', () => {
       'ex-1',
       'ex-2',
     ]);
+  });
+});
+
+describe('toWorkoutPayload · jour type', () => {
+  const ORIGINE = {
+    programWorkoutId: '6f1c2b7e-0000-4000-8000-000000000001',
+    programName: 'Push Pull Legs',
+    workoutName: 'Jour Push',
+  };
+
+  it('omet le jour type pour une séance libre, au lieu de l’envoyer nul', () => {
+    // `@IsOptional()` accepte l'absence ; un `null` explicite échouerait sur
+    // `@IsUUID()` et ferait refuser toute séance libre.
+    const corps = toWorkoutPayload(createSession(0), 60_000);
+
+    expect('programWorkoutId' in corps).toBe(false);
+  });
+
+  it('porte le jour type quand la séance en vient', () => {
+    const state = createSessionFrom(0, ORIGINE, [DEVELOPPE], ['k1']);
+
+    expect(toWorkoutPayload(state, 60_000).programWorkoutId).toBe(
+      ORIGINE.programWorkoutId,
+    );
+  });
+
+  it('n’envoie que l’identifiant, jamais les noms affichés', () => {
+    // Les deux noms ne servent qu'à l'en-tête de l'écran : le serveur les relit
+    // depuis sa propre table, et `forbidNonWhitelisted` refuserait le corps.
+    const state = createSessionFrom(0, ORIGINE, [DEVELOPPE], ['k1']);
+    const corps = toWorkoutPayload(state, 60_000);
+
+    expect(JSON.stringify(corps)).not.toContain('Push Pull Legs');
+    expect(JSON.stringify(corps)).not.toContain('Jour Push');
   });
 });

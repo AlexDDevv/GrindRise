@@ -1,7 +1,12 @@
 import { create } from 'zustand';
 
 import * as session from './sessionState';
-import type { SessionExerciseInput, SessionState, SetDraft } from './types';
+import type {
+  SessionExerciseInput,
+  SessionOrigin,
+  SessionState,
+  SetDraft,
+} from './types';
 
 /**
  * Séance de musculation en cours de saisie.
@@ -24,6 +29,12 @@ type StrengthSessionStore = {
   session: SessionState;
   /** @param startedAt injectable pour les tests ; `Date.now()` par défaut. */
   start: (startedAt?: number) => void;
+  /** Séance préremplie par un jour type — maquette 10, écran ②′. */
+  startFrom: (
+    origin: SessionOrigin,
+    exercises: readonly SessionExerciseInput[],
+    startedAt?: number,
+  ) => void;
   reset: () => void;
   addExercise: (input: SessionExerciseInput) => void;
   removeExercise: (key: string) => void;
@@ -54,6 +65,15 @@ export const useStrengthSessionStore = create<StrengthSessionStore>((set) => ({
   session: session.createSession(Date.now()),
 
   start: (startedAt = Date.now()) => set({ session: session.createSession(startedAt) }),
+  startFrom: (origin, exercises, startedAt = Date.now()) =>
+    set({
+      session: session.createSessionFrom(
+        startedAt,
+        origin,
+        exercises,
+        exercises.map(makeKey),
+      ),
+    }),
   reset: () => set({ session: session.createSession(Date.now()) }),
 
   addExercise: (input) =>

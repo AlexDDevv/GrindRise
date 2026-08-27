@@ -24,7 +24,7 @@ import { ExerciseListItem } from '../components/ExerciseListItem';
 import { SessionStatsHeader } from '../components/SessionStatsHeader';
 import { SetEditorSheet } from '../components/SetEditorSheet';
 import { muscleGroupLabel } from '../muscleGroups';
-import { computeSessionStats } from '../sessionStats';
+import { computeSessionStats, originLabel } from '../sessionStats';
 import {
   MAX_EXERCISES,
   canAddExercise,
@@ -241,6 +241,7 @@ export function StrengthSessionScreen() {
       <SessionStatsHeader
         stats={stats}
         stopwatch={stopwatch}
+        origin={originLabel(session.origin)}
         onPressStopwatch={() => setDurationSheetOpen(true)}
       />
 

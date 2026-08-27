@@ -1,6 +1,7 @@
 import {
   computeSessionStats,
   formatSeconds,
+  originLabel,
   repsUnit,
   summarizeExercise,
 } from './sessionStats';
@@ -148,5 +149,23 @@ describe('summarizeExercise', () => {
 
   it("dit qu'une carte sans série est vide", () => {
     expect(summarizeExercise(carte([]))).toBe('Aucune série');
+  });
+});
+
+describe('originLabel', () => {
+  it('nomme la séance libre plutôt que de laisser l’en-tête vide', () => {
+    expect(originLabel(null)).toBe('SÉANCE LIBRE');
+  });
+
+  it('met le jour avant son programme', () => {
+    // L'inverse de la ligne « DERNIER » de l'écran de départ : ici on sait
+    // déjà dans quel programme on est, et c'est le jour qu'on relit.
+    expect(
+      originLabel({
+        programWorkoutId: 'jour-1',
+        programName: 'Push Pull Legs',
+        workoutName: 'Jour Push',
+      }),
+    ).toBe('JOUR PUSH · PUSH PULL LEGS');
   });
 });
