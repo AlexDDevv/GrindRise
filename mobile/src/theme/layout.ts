@@ -271,6 +271,21 @@ export const reorder = {
    * est déjà en cours pendant que le ressort joue.
    */
   shiftSpring: { stiffness: 260, damping: 28, mass: 1 },
+  /**
+   * Grossissement de la ligne saisie — elle « flotte », dit la maquette ⑦.
+   *
+   * Deux pour cent, et pas davantage : la ligne prend toute la largeur, si bien
+   * qu'un pour cent de plus se lit déjà comme une vingtaine de points qui
+   * débordent. C'est le geste de la lever qui doit se voir, pas la taille.
+   */
+  liftScale: 1.02,
+  /**
+   * Ressort de la levée, et de la repose au relâchement.
+   *
+   * Plus vif que celui du décalage : attraper un objet est instantané, alors
+   * que la place se fait pendant qu'on le déplace.
+   */
+  liftSpring: { stiffness: 320, damping: 24, mass: 1 },
 } as const;
 
 /**

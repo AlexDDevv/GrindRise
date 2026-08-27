@@ -389,6 +389,27 @@ type RowProps = {
  */
 function Row({ active, settled, shift, rowHeight, dragTranslate, children }: RowProps) {
   const offset = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  /**
+   * La levée, et la repose.
+   *
+   * Sans elle, la ligne saisie était la seule chose immobile de l'écran : elle
+   * colle au doigt au point près pendant que tout le reste glisse, et le geste
+   * de l'attraper ne se voyait nulle part. La maquette ⑦ dit qu'elle « flotte »
+   * — le filet à l'or et l'ombre le disaient à l'arrêt, il manquait l'instant.
+   */
+  useEffect(() => {
+    const animation = Animated.spring(scale, {
+      toValue: active ? reorder.liftScale : 1,
+      useNativeDriver: true,
+      ...reorder.liftSpring,
+    });
+
+    animation.start();
+
+    return () => animation.stop();
+  }, [active, scale]);
 
   /**
    * Hors glisser, le décalage retombe à zéro sans animation, et dans le commit
@@ -426,8 +447,8 @@ function Row({ active, settled, shift, rowHeight, dragTranslate, children }: Row
         // La ligne saisie suit le doigt, les autres leur ressort. Deux valeurs
         // et non une : celle du doigt est écrite au fil du geste, celle du
         // décalage est animée, et les mêler ferait relancer un ressort à chaque
-        // image.
-        { transform: [{ translateY: active ? dragTranslate : offset }] },
+        // image. Le grossissement, lui, vaut pour la ligne saisie seule.
+        { transform: [{ translateY: active ? dragTranslate : offset }, { scale }] },
       ]}
     >
       {children}
