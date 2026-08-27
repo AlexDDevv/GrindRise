@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, StyleSheet, View } from 'react-native';
 
 import { border, colors, reorder, shadow } from '../../theme';
@@ -10,7 +10,12 @@ import { border, colors, reorder, shadow } from '../../theme';
  * installer, rien à reconstruire, Expo Go continue de fonctionner. Le geste
  * tourne en thread JS, ce qui serait un mauvais choix pour une liste longue ou
  * un écran chargé — ici la liste est plafonnée à 30 lignes et l'écran ne fait
- * rien d'autre pendant le glisser.
+ * rien d'autre pendant le glisser. Les ressorts, eux, partent en natif : c'est
+ * là que se joue la fluidité, et ils tiennent même quand le thread JS peine.
+ *
+ * Si le geste lui-même devait un jour quitter le thread JS, la porte est
+ * `react-native-sortables`, qui couvre poignée et défilement au bord — et non
+ * une réécriture maison sur Reanimated.
  *
  * **Un seul responder, au niveau de la liste.** Un responder par ligne devrait
  * être recréé à chaque rendu, et le geste en cours serait perdu dès que la liste
@@ -95,18 +100,56 @@ export function ReorderableList<T>({
 }: Props<T>) {
   const [drag, setDrag] = useState<DragState | null>(null);
 
+  /**
+   * L'ordre que la liste vient d'obtenir, en attendant que l'appelant le lui
+   * confirme.
+   *
+   * Sans lui, le relâchement était une course. Deux choses doivent y changer
+   * ensemble — l'ordre des données, qui appartient à l'appelant, et l'état de
+   * glisser, qui appartient à la liste — mais ce sont deux mécanismes séparés,
+   * et rien ne les oblige à commiter dans le même passage. L'état de glisser
+   * tombant le premier, la liste rendait l'ancien ordre sans décalage, c'est-à-
+   * dire la ligne saisie revenue à sa place de départ ; l'inverse la montrait
+   * une place trop loin. Le défaut n'apparaissait donc qu'une fois sur deux.
+   *
+   * Or la liste sait déjà où la ligne atterrit : elle vient de le calculer.
+   * Elle affiche ce nouvel ordre elle-même, dans le commit qui éteint le
+   * glisser, et se contente d'attendre que l'appelant dise la même chose. Il
+   * n'y a plus deux versions à synchroniser, donc plus de course.
+   */
+  const [settledOrder, setSettledOrder] = useState<readonly T[] | null>(null);
+
   // Refs et non state : le responder est créé une fois et doit lire les valeurs
   // courantes, pas celles capturées à sa création.
   const armed = useRef<number | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const grabbedRef = useRef(false);
+  const rowsRef = useRef(data);
   const lengthRef = useRef(data.length);
   const onMoveRef = useRef(onMove);
   const onGrabChangeRef = useRef(onGrabChange);
 
-  lengthRef.current = data.length;
+  // Ce que la liste affiche, et non ce que l'appelant tient encore : un second
+  // glisser entamé avant qu'il n'ait rattrapé son retard doit compter les
+  // places telles qu'elles sont sous le doigt. Ses propres mises à jour se
+  // suivant dans l'ordre, il aura la première quand la seconde lui parviendra.
+  const rows = settledOrder ?? data;
+
+  rowsRef.current = rows;
+  lengthRef.current = rows.length;
   onMoveRef.current = onMove;
   onGrabChangeRef.current = onGrabChange;
+
+  /**
+   * L'appelant a parlé : sa version fait foi, quelle qu'elle soit.
+   *
+   * Comparer les deux ordres serait plus fin, mais laisserait la liste bloquée
+   * sur le sien si l'appelant refusait le déplacement ou l'amendait. Le premier
+   * tableau qu'il rend, quel qu'il soit, reprend la main.
+   */
+  useEffect(() => {
+    setSettledOrder(null);
+  }, [data]);
 
   // L'état du défilement automatique, tenu image par image.
   const dyRef = useRef(0);
@@ -172,23 +215,6 @@ export function ReorderableList<T>({
     },
     [],
   );
-
-  /**
-   * Le décalage retombe à zéro APRÈS le commit, jamais pendant le geste.
-   *
-   * `translateY.setValue` écrit droit sur la vue native, hors du cycle de
-   * rendu. Appelée au relâchement, elle s'appliquait donc avant que React
-   * n'ait commité la liste réordonnée : la ligne saisie claquait à son ancien
-   * emplacement le temps d'une frame, puis ressautait au nouveau. Un effet de
-   * disposition tombe dans le même commit que le nouvel ordre, et avant
-   * l'affichage — les deux mouvements n'en font plus qu'un.
-   *
-   * Il dépend de `drag` et non de `data` : relâcher sans avoir changé l'ordre
-   * ne touche pas aux données, et le décalage resterait à l'écran.
-   */
-  useLayoutEffect(() => {
-    if (drag === null) translateY.setValue(0);
-  }, [drag, translateY]);
 
   const responder = useMemo(() => {
     /**
@@ -291,6 +317,14 @@ export function ReorderableList<T>({
 
       onPanResponderGrant: (event) => {
         if (armed.current === null) return;
+
+        // Le seul endroit d'où le décalage du doigt est remis à zéro, et c'est
+        // à la saisie et non au relâchement.
+        //
+        // Écrire sur une valeur animée ne passe pas par le commit de React :
+        // remettre à zéro au relâchement doublait parfois le commit du nouvel
+        // ordre, et la ligne revenait à son point de départ le temps d'une
+        // image. Ici il n'y a plus rien à doubler — le geste n'a pas commencé.
         translateY.setValue(0);
         dyRef.current = 0;
         scrolledRef.current = 0;
@@ -325,7 +359,14 @@ export function ReorderableList<T>({
         setArmed(null);
 
         if (current !== null && current.offset !== 0) {
-          onMoveRef.current(current.from, current.from + current.offset);
+          const to = current.from + current.offset;
+
+          // L'ordre d'abord, pour la liste elle-même : il part dans le même
+          // commit que l'extinction du glisser juste en dessous, et la ligne
+          // est donc à sa nouvelle place au moment précis où elle cesse d'être
+          // portée par le doigt.
+          setSettledOrder(moved(rowsRef.current, current.from, to));
+          onMoveRef.current(current.from, to);
         }
 
         setDragState(null);
@@ -343,7 +384,7 @@ export function ReorderableList<T>({
 
   return (
     <View {...responder.panHandlers}>
-      {data.map((item, index) => {
+      {rows.map((item, index) => {
         const active = drag?.from === index;
         const handle: ReorderHandle = {
           onPressIn: () => {
@@ -420,19 +461,22 @@ function Row({ active, settled, shift, rowHeight, dragTranslate, children }: Row
   }, [active, scale]);
 
   /**
-   * Hors glisser, le décalage retombe à zéro sans animation, et dans le commit
-   * du nouvel ordre.
+   * Le ressort qui écarte la ligne, et sa remise au repos.
    *
-   * Même raison que pour la ligne saisie : les lignes ont déjà changé de place
-   * dans les données, et les ramener en ressort rejouerait un mouvement déjà
-   * fait — chacune repartirait d'une hauteur qu'elle n'occupe plus.
+   * `useEffect` et non `useLayoutEffect` : un effet de disposition s'exécute
+   * avant l'affichage, donc il court après le commit qui vient de replacer les
+   * lignes, et pouvait le devancer — la ligne se serait remise à zéro alors
+   * qu'elle occupait encore son ancienne place. Ici le commit est déjà à
+   * l'écran, il n'y a plus rien à doubler.
    */
-  useLayoutEffect(() => {
-    if (settled) offset.setValue(0);
-  }, [settled, offset]);
-
   useEffect(() => {
-    if (settled) return;
+    if (settled) {
+      // Hors glisser la vue est câblée sur le zéro littéral, pas sur cette
+      // valeur : l'écriture ne se voit pas. Elle ne sert qu'à ce que le glisser
+      // suivant reparte de zéro plutôt que du décalage laissé par le précédent.
+      offset.setValue(0);
+      return;
+    }
 
     const animation = Animated.spring(offset, {
       toValue: shift,
@@ -447,16 +491,30 @@ function Row({ active, settled, shift, rowHeight, dragTranslate, children }: Row
     return () => animation.stop();
   }, [shift, settled, offset]);
 
+  /**
+   * Pendant le geste la position est animée ; sitôt le geste fini, elle
+   * redevient une valeur de rendu ordinaire.
+   *
+   * C'est ce qui rend le relâchement sûr. Remettre le décalage à zéro par
+   * écriture sur la valeur animée le faisait passer par un autre chemin que le
+   * commit du nouvel ordre : quand l'écriture arrivait la première, la ligne
+   * était remise à zéro alors qu'elle occupait encore son ancienne place, et
+   * on la voyait revenir à son point de départ le temps d'une image. Un zéro
+   * littéral part dans le commit lui-même — la position et l'ordre qu'elle
+   * accompagne ne peuvent plus se doubler.
+   *
+   * Les trois cas sont exclusifs : le doigt, le ressort, le repos.
+   */
+  const translateY = active ? dragTranslate : settled ? 0 : offset;
+
   return (
     <Animated.View
       style={[
         { height: rowHeight },
         active ? styles.dragged : null,
-        // La ligne saisie suit le doigt, les autres leur ressort. Deux valeurs
-        // et non une : celle du doigt est écrite au fil du geste, celle du
-        // décalage est animée, et les mêler ferait relancer un ressort à chaque
-        // image. Le grossissement, lui, vaut pour la ligne saisie seule.
-        { transform: [{ translateY: active ? dragTranslate : offset }, { scale }] },
+        // Le grossissement ne suit aucune place dans la liste : il reste animé
+        // en toutes circonstances, et n'a rien à disputer au commit.
+        { transform: [{ translateY }, { scale }] },
       ]}
     >
       {children}
@@ -489,6 +547,14 @@ function edgeSpeed(pageY: number, bounds: EdgeBounds): number {
 function ramp(depth: number): number {
   const share = Math.min(1, depth / reorder.edgeBand);
   return share * reorder.edgeSpeed;
+}
+
+/** Le même tableau, un élément déplacé d'une place à une autre. */
+function moved<T>(items: readonly T[], from: number, to: number): readonly T[] {
+  const next = items.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
 }
 
 /**
