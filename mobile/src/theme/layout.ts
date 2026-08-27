@@ -185,6 +185,14 @@ export const cutCorner = {
  */
 export const maxWidth = {
   lore: 256,
+  /**
+   * Boîte de confirmation — maquette 10, écran Ⓒ.
+   *
+   * Plus étroite que la modale de palier, qui prend toute la gouttière : une
+   * question fermée se lit d'un coup d'œil, et l'élargir donnerait à une
+   * suppression la solennité d'une cérémonie.
+   */
+  dialog: 300,
 } as const;
 
 /** Barre d'XP — Composants detail 02. */
@@ -286,6 +294,39 @@ export const reorder = {
    * que la place se fait pendant qu'on le déplace.
    */
   liftSpring: { stiffness: 320, damping: 24, mass: 1 },
+} as const;
+
+/**
+ * Carte d'un programme — maquette 10, écran ⑥′.
+ *
+ * Trois niveaux dans une seule carte : le programme en en-tête, ses jours types
+ * en lignes, la création en pied. La géométrie est propre à cet assemblage et
+ * n'a d'équivalent nulle part ailleurs dans l'échelle.
+ */
+export const programCard = {
+  /**
+   * Colonne « DÉMARRER », à droite de chaque jour.
+   *
+   * 74 points de large sur toute la hauteur de la ligne : assez pour que le
+   * départ soit une cible franche, assez étroit pour que le nom du jour reste
+   * le corps de la ligne. C'est ce qui remplace le bouton unique du pied, qui
+   * figeait un jour arbitraire.
+   */
+  startColumn: 74,
+  /** Ligne d'action en pied de carte : « Ajouter un jour type ». */
+  actionRow: 48,
+  /** Un point du menu de trois points. */
+  menuDot: 3,
+  /** Écart entre deux points du menu. */
+  menuDotGap: 3,
+  /**
+   * Débord tactile du menu, de chaque côté.
+   *
+   * Les trois points font neuf points de haut : le débord porte la cible aux
+   * quarante-quatre points de `touchTarget.minimum` sans écarter le compte de
+   * jours qui le précède.
+   */
+  menuHitSlop: 18,
 } as const;
 
 /**

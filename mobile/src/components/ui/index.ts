@@ -11,6 +11,10 @@ export type { WorkoutMetric } from './WorkoutCard';
 export { LevelUpModal } from './LevelUpModal';
 export { SegmentedControl } from './SegmentedControl';
 export { Switch } from './Switch';
+export { MenuDots } from './MenuDots';
+export { MenuSheet } from './MenuSheet';
+export type { MenuAction } from './MenuSheet';
+export { ConfirmDialog } from './ConfirmDialog';
 export { ReorderableList } from './ReorderableList';
 export type { EdgeBounds, EdgeScroller, ReorderHandle } from './ReorderableList';
 

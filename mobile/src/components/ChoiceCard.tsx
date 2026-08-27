@@ -25,28 +25,55 @@ type Props = {
   detail?: string;
   /** Emblème à gauche du titre : hexagone de sport, médaillon. */
   emblem?: React.ReactNode;
+  /**
+   * Chiffre mono aligné à droite du titre : « 2 PROGRAMMES ».
+   *
+   * Un décompte et non une description — il tient sur une ligne et se lit en
+   * même temps que le titre. Ce qui demande une phrase va dans `subtitle`.
+   */
+  meta?: string;
+  /**
+   * Bande de pied, séparée par un filet : un repère de plus sans alourdir la
+   * carte — « DERNIER · Push Pull Legs · Jour Pull ».
+   */
+  footer?: React.ReactNode;
   selected: boolean;
   onPress: () => void;
 };
 
-export function ChoiceCard({ title, subtitle, detail, emblem, selected, onPress }: Props) {
+export function ChoiceCard({
+  title,
+  subtitle,
+  detail,
+  emblem,
+  meta,
+  footer,
+  selected,
+  onPress,
+}: Props) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={title}
+      accessibilityLabel={meta ? `${title}, ${meta.toLowerCase()}` : title}
       style={({ pressed }) => [
         styles.card,
         selected && styles.cardSelected,
         pressed && !selected && styles.cardPressed,
+        // La carte lâche son rembourrage bas : le pied porte le sien, et
+        // l'écart entre les deux est déjà celui de la carte.
+        footer ? styles.cardWithFooter : null,
       ]}
     >
       <View style={styles.header}>
         {emblem}
 
         <View style={styles.titleBlock}>
-          <Text style={typography.display.cardTitle}>{title}</Text>
+          <View style={styles.titleLine}>
+            <Text style={[typography.display.cardTitle, styles.title]}>{title}</Text>
+            {meta ? <Text style={typography.mono.meta}>{meta}</Text> : null}
+          </View>
           {subtitle ? <Text style={typography.sans.caption}>{subtitle}</Text> : null}
         </View>
       </View>
@@ -54,6 +81,8 @@ export function ChoiceCard({ title, subtitle, detail, emblem, selected, onPress 
       {selected && detail ? (
         <Text style={[typography.display.lore, styles.detail]}>{detail}</Text>
       ) : null}
+
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
     </Pressable>
   );
 }
@@ -73,10 +102,33 @@ const styles = StyleSheet.create({
   cardSelected: {
     borderColor: colors.accent.gold,
   },
+  cardWithFooter: {
+    paddingBottom: padding.none,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: gap.row,
+  },
+  titleLine: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: gap.row,
+  },
+  title: {
+    flex: 1,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: gap.row,
+    paddingVertical: padding.dense.y,
+    paddingHorizontal: padding.card.x,
+    // Le pied déborde la gouttière de la carte : le filet doit aller d'un bord
+    // à l'autre, ce qu'un pied rentré ne ferait pas.
+    marginHorizontal: -padding.card.x,
+    borderTopWidth: border.hairline,
+    borderTopColor: colors.line.default,
   },
   titleBlock: {
     flex: 1,
