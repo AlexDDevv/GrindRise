@@ -12,6 +12,8 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.apps.grindrise.fr",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://nycilerxjfwlodpghidp.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55Y2lsZXJ4amZ3bG9kcGdoaWRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNjkzODYsImV4cCI6MjEwMTk0NTM4Nn0.l4aeGYby-2c6rpEQviPNuW8dyIGMHV-wKHSVGov3lIE",
         "EXPO_PUBLIC_THEME_GALLERY": "0"
       }
     },
@@ -19,6 +21,8 @@
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.apps.grindrise.fr",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://nycilerxjfwlodpghidp.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55Y2lsZXJ4amZ3bG9kcGdoaWRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNjkzODYsImV4cCI6MjEwMTk0NTM4Nn0.l4aeGYby-2c6rpEQviPNuW8dyIGMHV-wKHSVGov3lIE",
         "EXPO_PUBLIC_THEME_GALLERY": "0"
       }
     }
