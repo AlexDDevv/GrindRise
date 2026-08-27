@@ -10,13 +10,18 @@ import { CutCornerSurface } from './CutCornerSurface';
  * qu'un filet, le tertiaire n'est qu'un mot. Le coin coupé est réservé au
  * primaire — c'est le DA qui le réserve aux boutons pleins.
  *
+ * `danger` est un secondaire dont le filet et le mot passent au rouge. Il ne
+ * s'emploie que pour une action irréversible, et c'est un écart assumé au §02
+ * qui réserve le rouge au récit : le DA ne prévoit pas ce cas, et une
+ * suppression sans signal se lit comme une action ordinaire.
+ *
  * `size` ne change pas que la hauteur, il dit où le bouton se pose : `hero`
  * pour l'action unique d'un écran, `full` pour une action ordinaire pleine
  * largeur, `compact` en ligne dans un écran, `ceremony` dans une modale où tout
  * se resserre et où le filet monte d'un cran pour tenir sur le fond dégradé.
  */
 
-type ButtonVariant = 'primary' | 'secondary' | 'tertiary';
+type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'danger';
 type ButtonSize = 'hero' | 'full' | 'compact' | 'ceremony';
 
 /** L'état d'interaction, transporté d'un bloc à l'autre plutôt que recalculé. */
@@ -74,9 +79,11 @@ export function Button({
           );
         }
 
-        if (variant === 'secondary') {
+        if (variant === 'secondary' || variant === 'danger') {
           return (
-            <View style={[box, styles.outlined, { borderColor: outlineColor(size, state) }]}>
+            <View
+              style={[box, styles.outlined, { borderColor: outlineColor(variant, size, state) }]}
+            >
               {text}
             </View>
           );
@@ -100,11 +107,14 @@ function heightFor(variant: ButtonVariant, size: ButtonSize): number {
   // dashboard, celui qui clôt une séance. Il ne dépend pas de la variante, un
   // écran n'ayant qu'un seul héros.
   if (size === 'hero') return touchTarget.hero;
+  // `danger` dérive du secondaire, et retombe donc sur sa hauteur.
   return variant === 'primary' ? touchTarget.primary : touchTarget.secondary;
 }
 
 function labelStyle(variant: ButtonVariant, isCompact: boolean): TextStyle {
-  if (variant === 'secondary') return typography.sans.buttonSecondary;
+  if (variant === 'secondary' || variant === 'danger') {
+    return typography.sans.buttonSecondary;
+  }
   if (variant === 'tertiary') return typography.sans.buttonTertiary;
   return isCompact ? typography.sans.buttonCompact : typography.sans.button;
 }
@@ -114,8 +124,13 @@ function fillColor({ pressed, disabled }: State): string {
   return pressed ? colors.button.primaryBackgroundPressed : colors.button.primaryBackground;
 }
 
-function outlineColor(size: ButtonSize, { pressed, disabled }: State): string {
+function outlineColor(
+  variant: ButtonVariant,
+  size: ButtonSize,
+  { pressed, disabled }: State,
+): string {
   if (disabled) return colors.line.default;
+  if (variant === 'danger') return colors.button.dangerBorder;
   if (pressed) return colors.button.secondaryBorderPressed;
   return size === 'ceremony' ? colors.line.controlOnModal : colors.line.control;
 }
@@ -128,6 +143,8 @@ function labelColor(variant: ButtonVariant, { pressed, disabled }: State): strin
   // Le DA ne dessine l'état désactivé que pour le primaire. Les deux autres
   // retombent sur l'opacité de label du §02 plutôt que sur une teinte inventée.
   if (disabled) return colors.text.label;
+
+  if (variant === 'danger') return colors.button.dangerLabel;
 
   if (variant === 'secondary') {
     return pressed ? colors.button.secondaryLabelPressed : colors.button.secondaryLabel;

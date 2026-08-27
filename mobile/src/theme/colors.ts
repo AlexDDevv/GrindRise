@@ -131,6 +131,17 @@ export const colors = {
     primaryLabel: palette.inkOnGold,
     primaryLabelDisabled: palette.inkOnGoldMuted,
     secondaryBorderPressed: palette.rust500,
+    /**
+     * Action destructrice : filet et libellé rouges.
+     *
+     * Écart assumé au §02, qui réserve le rouge au récit. Le DA ne prévoit pas
+     * d'action irréversible, et la confirmation la plus sobre — celle que le
+     * design de la maquette 10 proposait, sans couleur — s'est lue à l'usage
+     * comme un bouton ordinaire. Le rouge reste un filet et un mot, jamais un
+     * aplat : c'est ce qui le distingue d'un bandeau de codex.
+     */
+    dangerBorder: palette.rust500,
+    dangerLabel: palette.rust300,
     secondaryLabel: palette.parchment300,
     secondaryLabelPressed: palette.parchmentLit,
     /** Libellé de bouton secondaire posé sur une modale. */

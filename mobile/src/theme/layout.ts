@@ -322,11 +322,13 @@ export const programCard = {
   /**
    * Débord tactile du menu, de chaque côté.
    *
-   * Les trois points font neuf points de haut : le débord porte la cible aux
-   * quarante-quatre points de `touchTarget.minimum` sans écarter le compte de
-   * jours qui le précède.
+   * Les trois points ne font que trois points de large : à dix-huit de débord,
+   * la cible tombait à trente-neuf, sous le plancher de `touchTarget.minimum`,
+   * et le menu se manquait au doigt. Vingt-quatre la portent à cinquante et un
+   * dans les deux sens — au-dessus du plancher, et sans écarter d'un pixel le
+   * compte de jours qui précède les points.
    */
-  menuHitSlop: 18,
+  menuHitSlop: 24,
 } as const;
 
 /**

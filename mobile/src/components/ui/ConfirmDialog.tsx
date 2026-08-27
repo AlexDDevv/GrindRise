@@ -21,11 +21,12 @@ import { Button } from './Button';
  * doit avoir l'air d'elle-même. Elle reste réservée aux gestes sans retour —
  * une confirmation devant chaque action apprendrait à les valider sans lire.
  *
- * **Ni or ni rouge sur le bouton qui détruit.** Le §02 donne l'or à la
- * progression et le rouge au récit ; ni l'un ni l'autre ne décrit une
- * suppression, et emprunter le rouge du codex ferait passer un avertissement
- * pour une annonce narrative. C'est `warning` qui porte le poids, en toutes
- * lettres : ce qui disparaît, et ce qui reste.
+ * **Le bouton qui détruit porte le rouge.** Le design le proposait sans
+ * couleur, au motif que le §02 réserve le rouge au récit ; à l'usage, un
+ * bouton sobre au milieu d'une modale sobre se lit comme une action ordinaire.
+ * Le rouge reste un filet et un mot, jamais un aplat — ce qui le distingue
+ * d'un bandeau de codex. `warning` continue de porter le fond de
+ * l'avertissement : ce qui disparaît, et ce qui reste.
  *
  * L'écart est en tertiaire et non en secondaire, à l'inverse de l'usage
  * courant : sur une confirmation, garder est le choix par défaut, et deux
@@ -75,7 +76,7 @@ export function ConfirmDialog({
             <View style={styles.actions}>
               <Button
                 label={confirmLabel}
-                variant="secondary"
+                variant="danger"
                 size="ceremony"
                 disabled={isBusy}
                 onPress={onConfirm}

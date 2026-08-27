@@ -17,11 +17,11 @@ import {
  * ajouter — au même endroit sur un programme comme sur un jour type. Un seul
  * composant pour les deux, parce que ce sont les mêmes gestes.
  *
- * **Aucun rouge sur l'action destructrice**, et c'est délibéré : le §02 réserve
- * le rouge au récit et l'or à la progression, donc ni l'un ni l'autre ne peut
- * marquer une suppression. `danger` la pose en texte secondaire, un cran sous
- * les autres, et c'est la confirmation qui porte l'avertissement — voir
- * `ConfirmDialog`.
+ * **L'action destructrice porte le rouge.** Écart assumé au §02, qui le réserve
+ * au récit : le DA ne prévoit pas d'action irréversible, et une suppression
+ * posée comme les autres lignes du menu se touche par mégarde. En texte seul,
+ * jamais en aplat — c'est ce qui la distingue d'un bandeau de codex. La
+ * confirmation qui suit dit ce qui disparaît, voir `ConfirmDialog`.
  *
  * Il ne confirme rien lui-même : chaque action remonte telle quelle, et
  * l'appelant décide de ce qu'elle ouvre.
@@ -31,9 +31,9 @@ export type MenuAction = {
   label: string;
   onPress: () => void;
   /**
-   * Action irréversible : posée en retrait, jamais colorée. Elle reste la
-   * dernière de la liste par convention d'appel, pas par tri automatique — un
-   * tri masquerait un ordre décidé par l'appelant.
+   * Action irréversible : posée en rouge, en texte seul. Elle reste la dernière
+   * de la liste par convention d'appel, pas par tri automatique — un tri
+   * masquerait un ordre décidé par l'appelant.
    */
   danger?: boolean;
 };
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     color: colors.text.titleSoft,
   },
   dangerLabel: {
-    color: colors.text.body,
+    color: colors.button.dangerLabel,
   },
   close: {
     alignItems: 'center',
