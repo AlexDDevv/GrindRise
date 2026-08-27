@@ -129,3 +129,76 @@ export function summarizeStrengthWorkout(
 
   return [jour, exercices, series].join(' · ');
 }
+
+/**
+ * Les trois chiffres d'une séance de musculation, pour une carte détaillée.
+ *
+ * `readMetrics` ne sait pas les produire : elle part de `SPORT_METRIC_FIELDS`,
+ * dont la musculation ne fait plus partie depuis qu'elle se logue en exercices
+ * et en séries. Sans cette fonction, une séance de musculation s'afficherait
+ * dans l'historique avec une carte sans aucun chiffre.
+ *
+ * La durée vient de `metrics.durationMin`, seule métrique qu'une séance
+ * structurée persiste encore — et c'est ici qu'elle se lit, la carte compacte
+ * n'ayant la place que pour deux nombres.
+ *
+ * Une séance sans exercice ne rend aucune métrique : ce sont les séances
+ * antérieures à la refonte, dont l'ancien jsonb ne décrit plus rien qu'on
+ * veuille réafficher.
+ */
+export function strengthMetrics(
+  source: StrengthSummarySource,
+  metrics: unknown,
+): WorkoutMetric[] {
+  if (source.exerciseCount === 0) return [];
+
+  // Capitalisés et non en capitales : c'est la convention de
+  // `SPORT_METRIC_FIELDS`, et la carte les met en capitales au rendu. Deux
+  // conventions dans les données pour un même affichage n'apporteraient rien.
+  const found: WorkoutMetric[] = [
+    { label: 'Exos', value: formatNumber(source.exerciseCount) },
+    { label: 'Séries', value: formatNumber(source.setCount) },
+  ];
+
+  const duration = durationMetric(metrics);
+  if (duration) found.push(duration);
+
+  return found;
+}
+
+/** La durée seule, quand `metrics` en porte une lisible. */
+function durationMetric(metrics: unknown): WorkoutMetric | null {
+  const value = (metrics as Record<string, unknown> | null)?.durationMin;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+
+  return { label: 'Durée', value: formatNumber(value), unit: 'min' };
+}
+
+/**
+ * Les métriques d'une séance, quelle que soit son époque.
+ *
+ * Le point d'entrée unique des écrans : trois chemins se cachent derrière, et
+ * les laisser choisir à l'appelant garantissait qu'un seul soit oublié.
+ *
+ * 1. **Séance structurée** — exercices et séries, plus la durée.
+ * 2. **Sport à formulaire plat** — ce que `SPORT_METRIC_FIELDS` sait relire.
+ * 3. **Séance de musculation d'avant la refonte** — aucune ligne dans
+ *    `logged_exercises`, et plus aucune entrée de config pour son sport. Elle
+ *    n'affichait alors *rien*, et la carte détaillée dessinait une bande vide.
+ *    Sa durée, elle, est toujours là : c'est tout ce qu'on peut en dire, et
+ *    c'est mieux que le silence.
+ */
+export function workoutMetrics(
+  sportId: string,
+  metrics: unknown,
+  strength: StrengthSummarySource | null,
+): WorkoutMetric[] {
+  if (strength !== null) return strengthMetrics(strength, metrics);
+
+  const fromConfig = readMetrics(sportId, metrics);
+  if (fromConfig.length > 0) return fromConfig;
+
+  const duration = durationMetric(metrics);
+
+  return duration ? [duration] : [];
+}

@@ -96,6 +96,11 @@ function DetailedBody({
         <Text style={[typography.sans.metricGain, styles.xpGain]}>+{xpGain} XP</Text>
       </View>
 
+      {/* Une bande vide se dessinerait quand même — filets, hauteur, fond — et
+          se lirait comme une donnée manquante plutôt qu'absente. Le cas existe :
+          une séance de musculation d'avant la refonte n'a ni exercices ni
+          métriques que la config sache relire. */}
+      {metrics.length === 0 ? null : (
       <View style={styles.metrics}>
         {metrics.map((metric) => (
           <View key={metric.label} style={styles.metric}>
@@ -107,6 +112,7 @@ function DetailedBody({
           </View>
         ))}
       </View>
+      )}
 
       <View style={styles.footer}>
         <Text style={typography.sans.captionSmall}>{loggedAt}</Text>
