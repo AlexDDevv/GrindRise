@@ -350,19 +350,88 @@ export function ReorderableList<T>({
         };
 
         return (
-          <Animated.View
+          <Row
             key={keyOf(item)}
-            style={[
-              { height: rowHeight },
-              active ? styles.dragged : null,
-              { transform: [{ translateY: active ? translateY : shiftOf(index, drag, rowHeight) }] },
-            ]}
+            active={active}
+            settled={drag === null}
+            shift={shiftOf(index, drag, rowHeight)}
+            rowHeight={rowHeight}
+            dragTranslate={translateY}
           >
             {renderItem(item, index, handle)}
-          </Animated.View>
+          </Row>
         );
       })}
     </View>
+  );
+}
+
+type RowProps = {
+  /** Vrai pour la ligne en cours de déplacement : elle suit le doigt. */
+  active: boolean;
+  /** Vrai hors glisser : plus personne ne s'écarte. */
+  settled: boolean;
+  /** Décalage visé pour laisser la place, en points. */
+  shift: number;
+  rowHeight: number;
+  /** Décalage du doigt, partagé par la liste — il ne vaut que pour la ligne saisie. */
+  dragTranslate: Animated.Value;
+  children: React.ReactNode;
+};
+
+/**
+ * Une ligne, et le ressort qui l'écarte.
+ *
+ * Le décalage était posé en style, comme un nombre nu : les lignes se
+ * téléportaient d'une hauteur dès que le doigt franchissait un cran. Une valeur
+ * animée par ligne les fait glisser — le composant existe pour ça, un `Hook` ne
+ * pouvant pas être appelé dans une boucle de rendu.
+ */
+function Row({ active, settled, shift, rowHeight, dragTranslate, children }: RowProps) {
+  const offset = useRef(new Animated.Value(0)).current;
+
+  /**
+   * Hors glisser, le décalage retombe à zéro sans animation, et dans le commit
+   * du nouvel ordre.
+   *
+   * Même raison que pour la ligne saisie : les lignes ont déjà changé de place
+   * dans les données, et les ramener en ressort rejouerait un mouvement déjà
+   * fait — chacune repartirait d'une hauteur qu'elle n'occupe plus.
+   */
+  useLayoutEffect(() => {
+    if (settled) offset.setValue(0);
+  }, [settled, offset]);
+
+  useEffect(() => {
+    if (settled) return;
+
+    const animation = Animated.spring(offset, {
+      toValue: shift,
+      useNativeDriver: true,
+      ...reorder.shiftSpring,
+    });
+
+    animation.start();
+
+    // Le geste redonne une cible avant que la précédente ne soit atteinte :
+    // sans cet arrêt, deux ressorts tireraient la même valeur.
+    return () => animation.stop();
+  }, [shift, settled, offset]);
+
+  return (
+    <Animated.View
+      style={[
+        { height: rowHeight },
+        active ? styles.dragged : null,
+        // La ligne saisie suit le doigt, les autres leur ressort. Deux valeurs
+        // et non une : celle du doigt est écrite au fil du geste, celle du
+        // décalage est animée, et les mêler ferait relancer un ressort à chaque
+        // image.
+        { transform: [{ translateY: active ? dragTranslate : offset }] },
+      ]}
+    >
+      {children}
+    </Animated.View>
   );
 }
 

@@ -263,6 +263,14 @@ export const reorder = {
    * ralentissait exactement quand il servait le plus.
    */
   edgeSpeed: 800,
+  /**
+   * Ressort des lignes qui s'écartent pour laisser la place.
+   *
+   * Assez raide pour que la place soit faite avant que le doigt n'y arrive, assez
+   * amorti pour ne pas rebondir : une liste qui oscille se lit mal, et le geste
+   * est déjà en cours pendant que le ressort joue.
+   */
+  shiftSpring: { stiffness: 260, damping: 28, mass: 1 },
 } as const;
 
 /**
