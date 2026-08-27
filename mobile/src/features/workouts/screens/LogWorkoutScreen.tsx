@@ -14,7 +14,6 @@ import { useLevelCurve } from '../../progression/useLevelCurve';
 import { SportPicker } from '../../sports/SportPicker';
 import type { Sport } from '../../sports/useSports';
 import { STRENGTH_SPORT_ID } from '../../strength/toWorkoutPayload';
-import { useStrengthSessionStore } from '../../strength/strengthSessionStore';
 import type { MetricField } from '../sportMetrics';
 import { useLogWorkout, type WorkoutResult } from '../useLogWorkout';
 import { WorkoutCelebration } from '../WorkoutCelebration';
@@ -35,14 +34,17 @@ import { readMetrics } from '../workoutSummary';
  *
  * **La musculation bifurque, elle ne se saisit plus ici.** Depuis la refonte du
  * serveur, une séance de musculation se logue en exercices et en séries, sur
- * `StrengthSession`. Choisir « musculation » dans le `SportPicker` ne pousse
- * pas cet écran pour autant : la section des métriques devient une invitation
+ * une pile à part. Choisir « musculation » dans le `SportPicker` ne pousse pas
+ * cet écran pour autant : la section des métriques devient une invitation
  * explicite, et c'est un appui sur son bouton qui ouvre la pile. Une navigation
  * automatique au choix du sport serait désorientante au retour sur l'onglet.
+ *
+ * Le bouton mène désormais au **départ musculation** et non plus droit à la
+ * séance : c'est là que se décide la séance libre ou un jour type de programme.
+ * Le chrono part donc un écran plus loin, une fois la branche choisie.
  */
 export function LogWorkoutScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<LogStackParamList>>();
-  const startSession = useStrengthSessionStore((s) => s.start);
 
   const {
     sports,
@@ -105,19 +107,14 @@ export function LogWorkoutScreen() {
         <View style={styles.section}>
           <Text style={typography.mono.label}>SÉANCE STRUCTURÉE</Text>
           <Text style={typography.sans.bodySmall}>
-            La musculation se logue en exercices et en séries. Une séance vaut
-            60 XP, quel que soit le volume.
+            La musculation se logue en exercices et en séries — librement, ou
+            en suivant un de tes programmes. Une séance vaut 60 XP, quel que
+            soit le volume.
           </Text>
           <Button
             label="Commencer la séance"
             size="hero"
-            onPress={() => {
-              // Le chrono part ici et non à l'ajout du premier exercice : la
-              // séance a commencé quand on ouvre l'écran, pas quand on trouve
-              // son premier mouvement dans le catalogue.
-              startSession();
-              navigation.navigate('StrengthSession');
-            }}
+            onPress={() => navigation.navigate('StrengthStart')}
           />
         </View>
       ) : (

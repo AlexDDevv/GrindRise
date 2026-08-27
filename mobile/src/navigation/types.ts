@@ -26,6 +26,12 @@ export type OnboardingStackParamList = {
  * exercices et séries, sur un parcours à part. Les autres sports restent sur
  * `SportChoice`, qui est le formulaire plat inchangé.
  *
+ * **Les programmes vivent ici et nulle part ailleurs** — maquette 10, section A.
+ * Ce ne sont pas une section de l'app mais une manière de démarrer une séance,
+ * donc ils n'ont pas d'onglet : `StrengthStart` s'insère entre le choix du sport
+ * et la séance, et ouvre les deux branches. La barre garde ses trois onglets, et
+ * sa quatrième place reste au codex.
+ *
  * `StrengthSummary` est une route et non un état d'écran, contrairement à ce que
  * fait `SportChoice` pour les sports plats : la pile est `reset` dessus, donc le
  * retour arrière ne ramène pas sur une séance déjà envoyée, et l'écran de séance
@@ -33,8 +39,23 @@ export type OnboardingStackParamList = {
  */
 export type LogStackParamList = {
   SportChoice: undefined;
+  /** Départ musculation : séance libre ou programmes. */
+  StrengthStart: undefined;
+  Programs: undefined;
+  /**
+   * Ordre des exercices d'un jour type. Seul l'identifiant voyage : l'écran
+   * relit le jour dans la liste, qui est de toute façon rechargée à chaque
+   * retour. Faire voyager l'objet entier afficherait un nom périmé après un
+   * renommage.
+   */
+  ProgramWorkout: { workoutId: string };
   StrengthSession: undefined;
-  ExerciseCatalog: undefined;
+  /**
+   * Le catalogue sert deux destinations : la séance en cours, et un jour type
+   * qu'on remplit. `addTo` dit laquelle — sans lui, l'exercice choisi
+   * partirait toujours dans la séance.
+   */
+  ExerciseCatalog: { addTo: { workoutId: string } } | undefined;
   /**
    * Le résultat voyage en paramètre et non dans un store : c'est du JSON pur —
    * React Navigation ne se plaint que des valeurs non sérialisables — et il

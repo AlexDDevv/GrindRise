@@ -1,4 +1,5 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import { useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
@@ -7,6 +8,8 @@ import { Screen } from '../../../components/Screen';
 import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/ui';
 import { spacing, typography } from '../../../theme';
+import type { LogStackParamList } from '../../../navigation/types';
+import { useAppendToWorkout } from '../../programs/useAppendToWorkout';
 import { CreateExerciseSheet } from '../components/CreateExerciseSheet';
 import { ExerciseListItem } from '../components/ExerciseListItem';
 import { MuscleGroupFilter } from '../components/MuscleGroupFilter';
@@ -18,9 +21,14 @@ import { useExerciseCatalog, type Exercise } from '../useExerciseCatalog';
 /**
  * Catalogue d'exercices — maquette 09, écran ④.
  *
- * Présenté en modale, il ne renvoie rien : il ajoute l'exercice à la séance via
- * le store et referme. C'est ce qui évite de faire voyager un résultat en route
- * params, et c'est la raison d'être du store.
+ * Présenté en modale, il ne renvoie rien : il écrit l'exercice choisi à sa
+ * destination et referme. C'est ce qui évite de faire voyager un résultat en
+ * route params.
+ *
+ * **Deux destinations, une seule liste.** Sans paramètre, l'exercice rejoint la
+ * séance en cours par le store. Avec `addTo`, il rejoint un jour type par
+ * l'API — le catalogue est le même, et le dupliquer pour changer d'écriture
+ * ferait diverger la recherche, les filtres et la création d'exercice perso.
  *
  * Le lien entre les deux gestes du bas de l'écran : la recherche restée sans
  * résultat pré-remplit le nom du nouvel exercice. Ne pas le faire obligerait à
@@ -28,7 +36,11 @@ import { useExerciseCatalog, type Exercise } from '../useExerciseCatalog';
  */
 export function ExerciseCatalogScreen() {
   const navigation = useNavigation();
+  const params = useRoute<RouteProp<LogStackParamList, 'ExerciseCatalog'>>().params;
+  const workoutId = params?.addTo.workoutId ?? null;
+
   const addExercise = useStrengthSessionStore((s) => s.addExercise);
+  const { append, error: appendError, isBusy } = useAppendToWorkout(workoutId);
 
   const {
     exercises,
@@ -47,7 +59,19 @@ export function ExerciseCatalogScreen() {
 
   const [creating, setCreating] = useState(false);
 
-  const choose = (exercise: Exercise) => {
+  const choose = async (exercise: Exercise) => {
+    if (workoutId !== null) {
+      // Un second appui pendant l'écriture ajouterait deux fois le même
+      // exercice : la liste envoyée est construite avant la réponse.
+      if (isBusy) return;
+
+      // L'écriture peut échouer — jour supprimé, jour complet, réseau. Le
+      // catalogue reste alors ouvert avec son message, au lieu de refermer sur
+      // un ajout qui n'a pas eu lieu.
+      if (await append(exercise.id)) navigation.goBack();
+      return;
+    }
+
     addExercise({
       exerciseId: exercise.id,
       name: exercise.name,
@@ -63,12 +87,12 @@ export function ExerciseCatalogScreen() {
     if (created === null) return;
 
     setCreating(false);
-    choose(created);
+    await choose(created);
   };
 
   return (
     <Screen
-      eyebrow="CATALOGUE"
+      eyebrow={workoutId === null ? 'CATALOGUE' : 'JOUR TYPE'}
       title="Ajouter un exercice"
       onBack={() => navigation.goBack()}
       scroll={false}
@@ -97,6 +121,8 @@ export function ExerciseCatalogScreen() {
 
       {error ? <ErrorNotice message={error} onRetry={reload} /> : null}
 
+      {appendError ? <ErrorNotice message={appendError} /> : null}
+
       {exercises === null && isLoading ? <LoadingState /> : null}
 
       {exercises !== null ? (
@@ -115,7 +141,7 @@ export function ExerciseCatalogScreen() {
               name={item.name}
               subtitle={muscleGroupLabel(item.muscle_group)}
               owned={item.created_by !== null}
-              onPress={() => choose(item)}
+              onPress={() => void choose(item)}
             />
           )}
         />
