@@ -203,15 +203,23 @@ export function ReorderableList<T>({
       const current = dragRef.current;
       if (current === null) return;
 
-      const total = dyRef.current + scrolledRef.current;
+      // Borné en points, et non plus seulement en rangs.
+      //
+      // Le décalage affiché suivait le doigt sans limite pendant que la place
+      // visée, elle, était bornée. Aux deux bouts les deux divergent — on tire
+      // la première ligne trois hauteurs au-dessus du haut, elle ne peut
+      // atterrir qu'à la première place — et le relâchement résorbait cet écart
+      // d'un coup : la ligne claquait. Au milieu de la liste ça ne se voyait
+      // pas, la cible y suivant toujours le doigt.
+      const top = -current.from * rowHeight;
+      const bottom = (lengthRef.current - 1 - current.from) * rowHeight;
+      const total = Math.min(bottom, Math.max(top, dyRef.current + scrolledRef.current));
+
       translateY.setValue(total);
 
-      // Borné pour que la cible reste dans la liste : sans ça, relâcher
-      // au-delà du dernier élément demanderait un index inexistant.
-      const raw = Math.round(total / rowHeight);
-      const max = lengthRef.current - 1 - current.from;
-      const min = -current.from;
-      const offset = Math.min(max, Math.max(min, raw));
+      // Le rang se déduit alors sans autre garde : un décalage déjà tenu entre
+      // ces deux bornes ne peut pas désigner une place qui n'existe pas.
+      const offset = Math.round(total / rowHeight);
 
       if (offset !== current.offset) setDragState({ ...current, offset });
     };
