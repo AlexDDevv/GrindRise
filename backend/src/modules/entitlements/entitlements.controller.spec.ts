@@ -78,4 +78,17 @@ describe('POST /webhooks/revenuecat', () => {
     });
     expect(appliques).toHaveLength(0);
   });
+
+  it("garde l'ordre des refus : signature fausse avant corps illisible", async () => {
+    // Épingle l'ordre, pas seulement le refus : si `readEvent` passait avant
+    // `isAuthorized`, ce cas — mauvaise signature ET corps illisible —
+    // répondrait 200 au lieu de 401, et l'API travaillerait pour un appelant
+    // non authentifié sans que rien ne le signale.
+    const { controller, appliques } = monter(SECRET);
+
+    await expect(
+      controller.handleRevenueCat('faux', { rien: true }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(appliques).toHaveLength(0);
+  });
 });
