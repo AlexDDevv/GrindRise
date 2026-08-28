@@ -10,31 +10,70 @@ type LigneCourante = {
   last_event_at: string | null;
 } | null;
 
+/** Un appel au builder PostgREST, arguments compris. */
+type Appel = { methode: string; args: unknown[] };
+
 /**
- * Bouchonne Supabase et retient ce qui aurait été écrit.
+ * Bouchonne Supabase et retient chaque appel avec ses arguments.
  *
- * Même approche que `programs.service.spec.ts` : un constructeur chaînable
- * dont chaque méthode se rend elle-même, et une capture des écritures.
+ * Retenir les arguments n'est pas du zèle. Un bouchon qui rend le builder sans
+ * rien noter laisse supprimer le `.eq('profile_id', …)` de la mise à jour sans
+ * qu'aucun test ne bronche : PostgREST patcherait alors **toutes** les lignes
+ * d'`entitlements`, et la plateforme entière deviendrait abonnée.
+ *
+ * `from()` rend un builder neuf à chaque appel, et c'est ce qui rend
+ * l'assertion discriminante : la lecture et l'écriture filtrent toutes deux sur
+ * `profile_id`, seule la séparation des deux chaînes permet d'exiger le filtre
+ * sur celle qui écrit.
  */
 function stubSupabase(courante: LigneCourante) {
   const ecritures: Record<string, unknown>[] = [];
+  const chaines: Appel[][] = [];
 
-  const builder: Record<string, unknown> = {};
-  for (const method of ['select', 'eq']) {
-    builder[method] = () => builder;
+  function builder(): Record<string, unknown> {
+    const appels: Appel[] = [];
+    chaines.push(appels);
+
+    const chaine: Record<string, unknown> = {};
+    for (const methode of ['select', 'eq', 'or']) {
+      chaine[methode] = (...args: unknown[]) => {
+        appels.push({ methode, args });
+        return chaine;
+      };
+    }
+    chaine.maybeSingle = () => {
+      appels.push({ methode: 'maybeSingle', args: [] });
+      return Promise.resolve({ data: courante, error: null });
+    };
+    chaine.update = (valeurs: Record<string, unknown>) => {
+      appels.push({ methode: 'update', args: [valeurs] });
+      ecritures.push(valeurs);
+      return chaine;
+    };
+    chaine.then = (resolve: (v: unknown) => unknown) =>
+      resolve({ data: null, error: null });
+
+    return chaine;
   }
-  builder.maybeSingle = () => Promise.resolve({ data: courante, error: null });
-  builder.update = (valeurs: Record<string, unknown>) => {
-    ecritures.push(valeurs);
-    return builder;
-  };
-  builder.then = (resolve: (v: unknown) => unknown) =>
-    resolve({ data: null, error: null });
 
-  const client = { from: () => builder };
+  const client = { from: () => builder() };
+
+  /** La chaîne qui a écrit, par opposition à celle qui a lu. */
+  const chaineEcriture = (): Appel[] =>
+    chaines.find((appels) =>
+      appels.some(({ methode }) => methode === 'update'),
+    ) ?? [];
+
+  /** La chaîne qui a lu l'état courant. */
+  const chaineLecture = (): Appel[] =>
+    chaines.find((appels) =>
+      appels.some(({ methode }) => methode === 'maybeSingle'),
+    ) ?? [];
 
   return {
     ecritures,
+    chaineEcriture,
+    chaineLecture,
     service: new EntitlementsService({ client } as unknown as SupabaseService),
   };
 }
@@ -65,6 +104,44 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
       status: 'active',
       expires_at: '2026-09-28T10:00:00.000Z',
       last_event_at: '2026-08-28T10:00:00.000Z',
+    });
+  });
+
+  it('n’écrit que sur la ligne du profil concerné', async () => {
+    // Sans ce filtre, la mise à jour PostgREST porte sur toute la table : un
+    // seul achat rendrait la plateforme entière abonnée, et rien d'autre ici
+    // ne le verrait — les valeurs écrites, elles, seraient les bonnes.
+    const { service, chaineEcriture } = stubSupabase({
+      plan: 'freemium',
+      status: 'active',
+      last_event_at: null,
+    });
+
+    await service.applyRevenueCatEvent(evenement());
+
+    expect(chaineEcriture()).toContainEqual({
+      methode: 'eq',
+      args: ['profile_id', PROFIL],
+    });
+  });
+
+  it('lit les colonnes dont la décision dépend', async () => {
+    // `last_event_at` porte toute la détection du rejeu : l'oublier du `select`
+    // le rendrait indéfini, donc jamais périmé, donc toujours réappliqué.
+    const { service, chaineLecture } = stubSupabase({
+      plan: 'freemium',
+      status: 'active',
+      last_event_at: null,
+    });
+
+    await service.applyRevenueCatEvent(evenement());
+
+    const select = chaineLecture().find(({ methode }) => methode === 'select');
+
+    expect(select?.args[0]).toContain('last_event_at');
+    expect(chaineLecture()).toContainEqual({
+      methode: 'eq',
+      args: ['profile_id', PROFIL],
     });
   });
 
