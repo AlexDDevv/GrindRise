@@ -282,7 +282,7 @@ Optionnelles :
 | `REDIS_URL` | aucune | **à ajouter en dernier.** Absente, l'API ne produit aucun job et le signale au démarrage |
 | `NOTIFICATIONS_QUEUE_NAME` | `notifications` | doit correspondre à celui du worker |
 | `PORT` | `3000` | inutile de la déclarer |
-| `REVENUECAT_WEBHOOK_SECRET` | aucune | seulement quand le webhook sera branché |
+| `REVENUECAT_WEBHOOK_SECRET` | aucune | requis pour que le webhook réponde autre chose que 501 |
 | `CORS_ALLOWED_ORIGINS` | aucune | origines web autorisées, séparées par des virgules. Sans objet pour le mobile |
 | `UNSUBSCRIBE_TOKEN_SECRET` | aucune | **requise dès que `REDIS_URL` l'est.** 32 caractères minimum |
 | `PUBLIC_API_URL` | aucune | **requise dès que `REDIS_URL` l'est.** URL publique de l'API, sans barre finale |
