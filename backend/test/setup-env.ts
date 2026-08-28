@@ -23,3 +23,11 @@ process.env.CORS_ALLOWED_ORIGINS ??=
 process.env.UNSUBSCRIBE_TOKEN_SECRET ??=
   'secret-de-test-assez-long-pour-etre-credible';
 process.env.PUBLIC_API_URL ??= 'https://api.exemple.test';
+
+/**
+ * Secret du webhook RevenueCat. Requis pour `auth.e2e-spec.ts`, qui doit
+ * prouver la route joignable *avec* un secret configuré — le cas absent (501)
+ * est déjà couvert unitairement sur le contrôleur.
+ */
+process.env.REVENUECAT_WEBHOOK_SECRET ??=
+  'secret-de-test-du-webhook-revenuecat-assez-long';
