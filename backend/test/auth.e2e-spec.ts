@@ -4,6 +4,7 @@ import { exportJWK, generateKeyPair, SignJWT, type KeyLike } from 'jose';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
+import { configureApp } from '../src/bootstrap';
 import { SupabaseService } from '../src/supabase/supabase.service';
 import { startJwksServer, type JwksServer } from './jwks-server';
 
@@ -120,6 +121,11 @@ describe('SupabaseAuthGuard (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    // Sans ce réglage, le `ValidationPipe` global (whitelist,
+    // forbidNonWhitelisted) ne tournerait pas ici : le test du webhook
+    // RevenueCat sur un corps non typé ne prouverait alors rien de ce que
+    // l'application sert vraiment.
+    configureApp(app);
     await app.init();
   });
 
@@ -156,6 +162,38 @@ describe('SupabaseAuthGuard (e2e)', () => {
         .get('/health')
         .expect(200)
         .expect({ status: 'ok' });
+    });
+
+    // Tous les autres tests du contrôleur RevenueCat appellent
+    // `handleRevenueCat(...)` directement : ils ne prouvent ni `@Public()`, ni
+    // le binding `@Headers`/`@Body`, ni le `ValidationPipe` global. Sans ces
+    // deux cas, retirer `@Public()` ferait répondre 401 à RevenueCat pour
+    // toujours — les achats cesseraient d'accorder quoi que ce soit — avec une
+    // suite entièrement verte.
+    describe('webhook RevenueCat', () => {
+      it('refuse un mauvais secret sans jeton — la garde du secret a tourné', () => {
+        // Si `@Public()` avait disparu, le guard global rejetterait cette
+        // requête avant même que le contrôleur ne lise le secret : la route ne
+        // serait alors plus protégée par lui, mais par l'authentification
+        // qu'elle n'est pas censée exiger.
+        return request(app.getHttpServer())
+          .post('/webhooks/revenuecat')
+          .set('Authorization', 'un-secret-au-hasard')
+          .send({ event: { type: 'INITIAL_PURCHASE' } })
+          .expect(401);
+      });
+
+      it('répond 200 sur un corps non typé dès que le secret est bon', () => {
+        // Le corps ne respecte aucun DTO connu : s'il survit, c'est que
+        // `forbidNonWhitelisted` ne s'applique pas à ce endpoint (le body est
+        // typé `unknown`), et que la route a bien été atteinte sans jeton.
+        return request(app.getHttpServer())
+          .post('/webhooks/revenuecat')
+          .set('Authorization', 'secret-de-test-du-webhook-revenuecat-assez-long')
+          .send({ ceci: 'un corps que ValidationPipe ne reconnaît pas' })
+          .expect(200)
+          .expect({ received: true });
+      });
     });
   });
 
