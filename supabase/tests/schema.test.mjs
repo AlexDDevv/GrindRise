@@ -1572,3 +1572,68 @@ describe('catalogue prédéfini', () => {
     assert.equal(rows[0].doublons, 0);
   });
 });
+
+describe('accès premium', () => {
+  /** Pose un droit d'accès sur un compte neuf et renvoie son identifiant. */
+  async function compteAvec(plan, statut, expiration = null) {
+    const userId = await createUser(`premium-${plan}-${statut}-${Math.random()}@grindrise.test`);
+    // `expiration` est un littéral SQL (`now() + interval …`), pas une valeur
+    // à lier : PGlite ne rejoue pas une expression d'intervalle passée en
+    // paramètre `$4` typé timestamptz.
+    await db.query(
+      `update public.entitlements
+         set plan = $2::public.entitlement_plan,
+             status = $3::public.entitlement_status,
+             expires_at = ${expiration ?? 'null'}
+       where profile_id = $1`,
+      [userId, plan, statut],
+    );
+    return userId;
+  }
+
+  async function aAcces(userId) {
+    const { rows } = await db.query(`select public.has_premium_access($1) as ok`, [userId]);
+    return rows[0].ok;
+  }
+
+  test('un lifetime sans échéance a accès', async () => {
+    // `expires_at` est nul pour un lifetime (core_schema.sql:104) : le traiter
+    // comme une échéance dépassée retirerait l'accès à un achat définitif.
+    assert.equal(await aAcces(await compteAvec('lifetime', 'active')), true);
+  });
+
+  test('un abonnement résilié garde l’accès jusqu’au terme payé', async () => {
+    // Résilier n'est pas perdre l'accès le jour même : le terme est déjà payé.
+    const userId = await compteAvec('subscription', 'cancelled', "now() + interval '10 days'");
+    assert.equal(await aAcces(userId), true);
+  });
+
+  test('un abonnement résilié et échu n’a plus accès', async () => {
+    const userId = await compteAvec('subscription', 'cancelled', "now() - interval '1 day'");
+    assert.equal(await aAcces(userId), false);
+  });
+
+  test('un incident de facturation garde l’accès', async () => {
+    // in_grace_period est un problème de paiement, pas une fin d'abonnement.
+    const userId = await compteAvec('subscription', 'in_grace_period', "now() + interval '3 days'");
+    assert.equal(await aAcces(userId), true);
+  });
+
+  test('un abonnement expiré n’a pas accès', async () => {
+    const userId = await compteAvec('subscription', 'expired', "now() - interval '1 day'");
+    assert.equal(await aAcces(userId), false);
+  });
+
+  test('un freemium n’a pas accès', async () => {
+    assert.equal(await aAcces(await compteAvec('freemium', 'active')), false);
+  });
+
+  test('un profil sans ligne d’entitlement n’a pas accès', async () => {
+    // Défensif : la fonction ne doit jamais rendre null, que l'appelant SQL
+    // interpréterait comme « ni vrai ni faux » et laisserait passer.
+    const { rows } = await db.query(
+      `select public.has_premium_access('00000000-0000-0000-0000-000000000000') as ok`,
+    );
+    assert.equal(rows[0].ok, false);
+  });
+});
