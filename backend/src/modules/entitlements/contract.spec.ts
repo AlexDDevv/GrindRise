@@ -42,6 +42,41 @@ describe('readEvent', () => {
     // fausse : le rejeu périmé ne serait plus détecté.
     expect(readEvent({ event: { ...CORPS.event, event_timestamp_ms: 'hier' } })).toBeNull();
   });
+
+  it('rend null si l’App User ID n’est pas un UUID', () => {
+    // RevenueCat envoie `$RCAnonymousID:…` pour un achat conclu avant que le
+    // SDK ait reçu une identité. Laisser passer cette valeur ferait lever
+    // Postgres en 22P02 sur la colonne `uuid`, donc répondre 5xx, donc rejouer
+    // sans fin un événement que rien ne réparera.
+    expect(
+      readEvent({
+        event: { ...CORPS.event, app_user_id: '$RCAnonymousID:8f3a10c7e1' },
+      }),
+    ).toBeNull();
+    expect(
+      readEvent({ event: { ...CORPS.event, app_user_id: 'pas-un-uuid' } }),
+    ).toBeNull();
+    expect(readEvent({ event: { ...CORPS.event, app_user_id: '' } })).toBeNull();
+  });
+
+  it('rend null sur un horodatage nettement en avance sur l’horloge', () => {
+    // Un horodatage forgé au maximum représentable deviendrait `last_event_at`
+    // et périmerait à jamais tout événement suivant, EXPIRATION comprise :
+    // l'accès payant ne serait plus révocable que par un UPDATE à la main.
+    expect(
+      readEvent({ event: { ...CORPS.event, event_timestamp_ms: 8_640_000_000_000_000 } }),
+    ).toBeNull();
+  });
+
+  it('tolère la dérive d’horloge entre RevenueCat et nous', () => {
+    // La tolérance existe pour ça et pour rien d'autre : quelques secondes
+    // d'avance ne sont pas une forgerie.
+    const event = readEvent({
+      event: { ...CORPS.event, event_timestamp_ms: Date.now() + 30_000 },
+    });
+
+    expect(event).not.toBeNull();
+  });
 });
 
 describe('transitionFor', () => {
@@ -75,6 +110,16 @@ describe('transitionFor', () => {
     // RevenueCat en ajoute. Ne rien faire est le seul défaut acceptable.
     expect(transitionFor('TRANSFER')).toBeNull();
     expect(transitionFor('')).toBeNull();
+  });
+
+  it('ne lit pas la chaîne de prototypes', () => {
+    // Avec des objets littéraux, `constructor` rendait une ouverture dont le
+    // plan était une fonction : sérialisé, il ne restait que
+    // `status: 'active'`, de quoi ranimer un droit expiré. `__proto__` rendait
+    // un plan illisible, donc un 500 et un rejeu sans fin.
+    expect(transitionFor('constructor')).toBeNull();
+    expect(transitionFor('__proto__')).toBeNull();
+    expect(transitionFor('toString')).toBeNull();
   });
 });
 

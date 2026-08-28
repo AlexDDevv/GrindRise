@@ -54,19 +54,50 @@ export type EntitlementTransition =
   | { kind: 'grant'; plan: EntitlementPlan; status: EntitlementStatus }
   | { kind: 'status'; status: EntitlementStatus };
 
-const OUVERTURES: Readonly<Record<string, EntitlementPlan>> = {
-  INITIAL_PURCHASE: 'subscription',
-  RENEWAL: 'subscription',
-  PRODUCT_CHANGE: 'subscription',
-  UNCANCELLATION: 'subscription',
-  NON_RENEWING_PURCHASE: 'lifetime',
-};
+/**
+ * Des `Map` et non des objets littéraux : une recherche par index sur un objet
+ * traverse la chaîne de prototypes, si bien que `transitionFor('constructor')`
+ * rendait une ouverture — `JSON.stringify` y perdait le plan, et le PATCH
+ * restant suffisait à rendre « actif » un droit expiré. `__proto__` produisait
+ * un plan illisible, donc un 500 et un rejeu sans fin. Une `Map` ne connaît que
+ * ses propres clés.
+ */
+const OUVERTURES: ReadonlyMap<string, EntitlementPlan> = new Map([
+  ['INITIAL_PURCHASE', 'subscription'],
+  ['RENEWAL', 'subscription'],
+  ['PRODUCT_CHANGE', 'subscription'],
+  ['UNCANCELLATION', 'subscription'],
+  ['NON_RENEWING_PURCHASE', 'lifetime'],
+]);
 
-const FINS: Readonly<Record<string, EntitlementStatus>> = {
-  CANCELLATION: 'cancelled',
-  EXPIRATION: 'expired',
-  BILLING_ISSUE: 'in_grace_period',
-};
+const FINS: ReadonlyMap<string, EntitlementStatus> = new Map([
+  ['CANCELLATION', 'cancelled'],
+  ['EXPIRATION', 'expired'],
+  ['BILLING_ISSUE', 'in_grace_period'],
+]);
+
+/**
+ * Forme canonique d'un UUID.
+ *
+ * `appUserId` finit dans un `where profile_id = …` sur une colonne `uuid` :
+ * toute autre forme fait lever Postgres en 22P02, l'API répondrait 5xx et
+ * RevenueCat rejouerait indéfiniment un événement que rien ne réparera. Le cas
+ * n'a rien de théorique — un achat conclu avant que le SDK ait reçu une
+ * identité arrive en `$RCAnonymousID:…`, qui ne désigne aucun compte ici.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Avance maximale tolérée sur l'horodatage d'un événement.
+ *
+ * Une tolérance existe parce que l'horloge de RevenueCat n'est pas la nôtre :
+ * refuser toute date dépassant `now()` rejetterait des événements légitimes
+ * pour quelques secondes de dérive. Elle reste courte parce qu'un horodatage
+ * lointain est irréparable : il devient `last_event_at`, et tout événement
+ * ultérieur — l'`EXPIRATION` qui doit retirer l'accès comprise — paraîtrait
+ * périmé à jamais. Seul un `UPDATE` à la main y remédierait.
+ */
+const AVANCE_MAX_MS = 5 * 60_000;
 
 /**
  * @returns `null` sur un type inconnu. RevenueCat en ajoute au fil du temps ;
@@ -74,10 +105,10 @@ const FINS: Readonly<Record<string, EntitlementStatus>> = {
  *   sur un événement qu'on ne comprend pas.
  */
 export function transitionFor(eventType: string): EntitlementTransition | null {
-  const plan = OUVERTURES[eventType];
+  const plan = OUVERTURES.get(eventType);
   if (plan) return { kind: 'grant', plan, status: 'active' };
 
-  const status = FINS[eventType];
+  const status = FINS.get(eventType);
   if (status) return { kind: 'status', status };
 
   return null;
@@ -90,8 +121,9 @@ export function transitionFor(eventType: string): EntitlementTransition | null {
  * et le lire à plat rendrait chaque champ indéfini sans lever la moindre
  * erreur.
  *
- * @returns `null` si le corps n'a pas la forme attendue. L'appelant répond
- *   alors 200 sans écrire : un corps illisible ne se répare pas par un rejeu.
+ * @returns `null` si le corps n'a pas la forme attendue — champ manquant,
+ *   identifiant qui n'est pas un UUID, horodatage absurde. L'appelant répond
+ *   alors 200 sans écrire : aucun de ces défauts ne se répare par un rejeu.
  */
 export function readEvent(body: unknown): RevenueCatEvent | null {
   if (typeof body !== 'object' || body === null) return null;
@@ -103,12 +135,17 @@ export function readEvent(body: unknown): RevenueCatEvent | null {
     event as Record<string, unknown>;
 
   if (typeof type !== 'string' || type === '') return null;
-  if (typeof app_user_id !== 'string' || app_user_id === '') return null;
+  // La forme de l'identifiant est une condition de recevabilité comme une
+  // autre : un `$RCAnonymousID:…` n'est pas un profil, et le laisser passer
+  // ferait lever Postgres au lieu de le journaliser.
+  if (typeof app_user_id !== 'string' || !UUID.test(app_user_id)) return null;
   // Un horodatage non numérique produirait une Date invalide, dont toute
   // comparaison est fausse : le rejeu périmé cesserait d'être détecté.
   if (typeof event_timestamp_ms !== 'number' || !Number.isFinite(event_timestamp_ms)) {
     return null;
   }
+  // Aucun événement légitime n'est notablement en avance sur l'horloge.
+  if (event_timestamp_ms > Date.now() + AVANCE_MAX_MS) return null;
 
   return {
     type,
