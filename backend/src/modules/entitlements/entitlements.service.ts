@@ -45,6 +45,32 @@ type MiseAJourEntitlement =
   Database['public']['Tables']['entitlements']['Update'];
 
 /**
+ * L'échéance que l'événement repousse, ou `null` s'il ne la repousse pas.
+ *
+ * Une fin d'accès ne dit rien du plan, mais elle peut dire une échéance plus
+ * lointaine — et `BILLING_ISSUE` est exactement ce cas. Il survient quand un
+ * renouvellement échoue, donc au terme payé ou après : l'`expires_at` en base
+ * est déjà passé, et `has_premium_access` exigeant `expires_at > now()`, le
+ * compte perdait l'accès à la seconde où il entrait en période de grâce. Soit
+ * l'inverse de la règle : « in_grace_period est un incident de facturation, pas
+ * une fin d'abonnement ». L'événement porte la fin de la période de grâce dans
+ * `expiration_at_ms`, il suffisait de la lire.
+ *
+ * L'échéance ne fait qu'avancer, jamais reculer. `CANCELLATION` et
+ * `EXPIRATION` portent une échéance qui n'est pas postérieure à celle déjà
+ * enregistrée : ils continuent donc de ne toucher qu'au statut. Et une échéance
+ * nulle en base vaut l'infini — c'est un lifetime — donc rien ne la repousse.
+ */
+function echeanceProlongee(
+  courante: string | null,
+  evenement: Date | null,
+): string | null {
+  if (courante === null || evenement === null) return null;
+
+  return new Date(courante) < evenement ? evenement.toISOString() : null;
+}
+
+/**
  * Droits d'accès (`entitlements`) : freemium / abonnement / lifetime.
  *
  * Source de vérité = cette table, alimentée par les webhooks RevenueCat.
@@ -87,7 +113,7 @@ export class EntitlementsService {
 
     const { data: courante, error } = await this.supabase.client
       .from('entitlements')
-      .select('plan, status, last_event_at')
+      .select('plan, status, expires_at, last_event_at')
       .eq('profile_id', event.appUserId)
       .maybeSingle();
 
@@ -137,6 +163,9 @@ export class EntitlementsService {
     if (transition.kind === 'grant') {
       valeurs.plan = transition.plan;
       valeurs.expires_at = event.expiresAt?.toISOString() ?? null;
+    } else {
+      const prolongee = echeanceProlongee(courante.expires_at, event.expiresAt);
+      if (prolongee !== null) valeurs.expires_at = prolongee;
     }
 
     const { error: erreurEcriture } = await this.supabase.client

@@ -1615,6 +1615,13 @@ describe('accès premium', () => {
 
   test('un incident de facturation garde l’accès', async () => {
     // in_grace_period est un problème de paiement, pas une fin d'abonnement.
+    //
+    // Ce cas est resté vert alors que le webhook, lui, retirait l'accès : il
+    // pose une échéance future à la main, or BILLING_ISSUE arrive au terme ou
+    // après, et le service n'écrivait alors que le statut. L'état testé ici
+    // n'était donc atteignable par aucun chemin réel. C'est le service qui a
+    // été corrigé — il prolonge désormais le terme jusqu'à la fin de la grâce —
+    // et non ce test, qui décrit bien la règle voulue.
     const userId = await compteAvec('subscription', 'in_grace_period', "now() + interval '3 days'");
     assert.equal(await aAcces(userId), true);
   });

@@ -9,6 +9,7 @@ const PROFIL = '3f8b1c2e-6d4a-4f1b-9c7e-2a5d8e0b4f16';
 type LigneCourante = {
   plan: string;
   status: string;
+  expires_at: string | null;
   last_event_at: string | null;
 } | null;
 
@@ -106,6 +107,7 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
     const { service, ecritures } = stubSupabase({
       plan: 'freemium',
       status: 'active',
+      expires_at: null,
       last_event_at: null,
     });
 
@@ -127,6 +129,7 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
     const { service, chaineEcriture } = stubSupabase({
       plan: 'freemium',
       status: 'active',
+      expires_at: null,
       last_event_at: null,
     });
 
@@ -144,6 +147,7 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
     const { service, chaineLecture } = stubSupabase({
       plan: 'freemium',
       status: 'active',
+      expires_at: null,
       last_event_at: null,
     });
 
@@ -152,6 +156,7 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
     const select = chaineLecture().find(({ methode }) => methode === 'select');
 
     expect(select?.args[0]).toContain('last_event_at');
+    expect(select?.args[0]).toContain('expires_at');
     expect(chaineLecture()).toContainEqual({
       methode: 'eq',
       args: ['profile_id', PROFIL],
@@ -162,6 +167,7 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
     const { service, ecritures } = stubSupabase({
       plan: 'freemium',
       status: 'active',
+      expires_at: null,
       last_event_at: null,
     });
 
@@ -182,6 +188,7 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
     const { service, ecritures } = stubSupabase({
       plan: 'lifetime',
       status: 'active',
+      expires_at: null,
       last_event_at: '2026-08-01T10:00:00.000Z',
     });
 
@@ -189,6 +196,59 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
 
     expect(ecritures[0]).toMatchObject({ status: 'expired' });
     expect(ecritures[0]).not.toHaveProperty('plan');
+    // Ni l'échéance : une ligne sans `expires_at` est un lifetime, donc
+    // l'infini. Lui en poser une, fût-elle lointaine, serait la raccourcir.
+    expect(ecritures[0]).not.toHaveProperty('expires_at');
+  });
+
+  it('prolonge le terme sur un incident de facturation', async () => {
+    // BILLING_ISSUE survient quand un renouvellement échoue, donc au terme ou
+    // après : l'échéance en base est déjà passée. N'écrire que le statut
+    // fermait l'accès à la seconde où le compte entrait en période de grâce,
+    // alors que la règle veut l'inverse. L'événement porte la fin de la grâce
+    // dans `expiration_at_ms`.
+    const { service, ecritures } = stubSupabase({
+      plan: 'subscription',
+      status: 'active',
+      expires_at: '2026-08-28T09:00:00.000Z',
+      last_event_at: '2026-08-01T10:00:00.000Z',
+    });
+
+    await service.applyRevenueCatEvent(
+      evenement({
+        type: 'BILLING_ISSUE',
+        expiresAt: new Date('2026-09-11T09:00:00.000Z'),
+      }),
+    );
+
+    expect(ecritures[0]).toMatchObject({
+      status: 'in_grace_period',
+      expires_at: '2026-09-11T09:00:00.000Z',
+    });
+    // La distinction grant/status tient : une fin d'accès ne dit rien du plan.
+    expect(ecritures[0]).not.toHaveProperty('plan');
+  });
+
+  it('ne raccourcit jamais un terme déjà payé', async () => {
+    // Une résiliation porte l'échéance du terme en cours, pas une nouvelle :
+    // l'accès va jusqu'au bout de ce qui est payé. Si l'événement ne repousse
+    // rien, l'échéance n'est pas réécrite du tout.
+    const { service, ecritures } = stubSupabase({
+      plan: 'subscription',
+      status: 'active',
+      expires_at: '2026-09-28T10:00:00.000Z',
+      last_event_at: '2026-08-01T10:00:00.000Z',
+    });
+
+    await service.applyRevenueCatEvent(
+      evenement({
+        type: 'CANCELLATION',
+        expiresAt: new Date('2026-09-28T10:00:00.000Z'),
+      }),
+    );
+
+    expect(ecritures[0]).toMatchObject({ status: 'cancelled' });
+    expect(ecritures[0]).not.toHaveProperty('expires_at');
   });
 
   it('ignore un événement plus ancien que le dernier appliqué', async () => {
@@ -197,6 +257,7 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
     const { service, ecritures } = stubSupabase({
       plan: 'subscription',
       status: 'active',
+      expires_at: '2026-09-28T10:00:00.000Z',
       last_event_at: '2026-08-28T12:00:00.000Z',
     });
 
@@ -214,6 +275,7 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
     const { service, ecritures } = stubSupabase({
       plan: 'subscription',
       status: 'active',
+      expires_at: '2026-09-28T10:00:00.000Z',
       last_event_at: '2026-08-28T10:00:00.000Z',
     });
 
@@ -226,6 +288,7 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
     const { service, ecritures } = stubSupabase({
       plan: 'freemium',
       status: 'active',
+      expires_at: null,
       last_event_at: null,
     });
 
