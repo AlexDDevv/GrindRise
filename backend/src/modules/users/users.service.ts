@@ -54,7 +54,8 @@ export class UsersService {
   async getProfile(profileId: string): Promise<UserWithProgress> {
     // Une seule requête plutôt que deux : la relation est 1-pour-1
     // (`user_progress.profile_id` est à la fois PK et FK), donc PostgREST
-    // renvoie un objet et non un tableau.
+    // renvoie un objet et non un tableau. Même raisonnement pour
+    // `entitlements`, dont `profile_id` est aussi la clé primaire.
     const { data, error } = await this.supabase.client
       .from('profiles')
       .select('*, user_progress(*), entitlements(plan, status, expires_at)')

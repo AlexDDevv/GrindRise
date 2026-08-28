@@ -15,6 +15,8 @@ import type { NarrativeBeat } from '../narrative/narrativeState';
 
 export type WorkoutLog = Database['public']['Tables']['workout_logs']['Row'];
 
+type Entitlement = Database['public']['Tables']['entitlements']['Row'];
+
 /** Une série telle qu'elle sort de la base — d'où le `snake_case`. */
 export type LoggedSetSnapshot = {
   type: 'reps' | 'time';
@@ -56,6 +58,8 @@ export type StrengthStats = {
 export type WorkoutCreated = {
   profile: Profile;
   progress: Progress;
+  /** Même forme que `GET /users/me` — voir `users.service.ts` côté backend. */
+  entitlement: Pick<Entitlement, 'plan' | 'status' | 'expires_at'>;
   award: {
     workout: WorkoutLog;
     xpAwarded: number;

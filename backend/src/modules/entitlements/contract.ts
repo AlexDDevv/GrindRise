@@ -9,9 +9,10 @@ import { timingSafeEqual } from 'node:crypto';
  * éprouvables cas par cas — même raison d'être que `xp-rules.ts` et
  * `narrative-rules.ts`.
  *
- * Ce fichier est la source de vérité du vocabulaire. Le miroir mobile
- * (`mobile/src/lib/entitlements.ts`) le recopie : `mobile/` et `backend/`
- * s'installent indépendamment, ce n'est pas un workspace pnpm.
+ * Ce fichier est la source de vérité du vocabulaire. Le futur miroir mobile
+ * (`mobile/src/lib/entitlementErrors.ts`, chantier suivant — voir spec §8) le
+ * recopiera : `mobile/` et `backend/` s'installent indépendamment, ce n'est
+ * pas un workspace pnpm.
  */
 
 /** Miroir de l'enum `public.entitlement_plan`. */
