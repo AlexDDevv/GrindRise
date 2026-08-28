@@ -10,16 +10,29 @@ import { SupabaseService } from '../../supabase/supabase.service';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type UserProgress = Database['public']['Tables']['user_progress']['Row'];
+export type Entitlement = Database['public']['Tables']['entitlements']['Row'];
 
 /**
  * Le profil et sa progression sont renvoyés séparément plutôt qu'imbriqués :
  * `user_progress` est un cache recalculable, pas un attribut du profil, et
  * les deux n'ont pas la même durée de vie côté client.
+ *
+ * Le droit d'accès accompagne le profil parce que tout écran qui affiche une
+ * restriction en a besoin au même instant. L'imbriquer dans `profile` serait
+ * faux : c'est une ligne écrite par un webhook, pas un attribut du compte.
  */
 export type UserWithProgress = {
   profile: Profile;
   /** Nul si le trigger de création n'a pas encore posé la ligne. */
   progress: UserProgress | null;
+  entitlement: Pick<Entitlement, 'plan' | 'status' | 'expires_at'>;
+};
+
+/** Le défaut le plus restrictif : ne jamais accorder d'accès payant par absence. */
+const FREEMIUM: UserWithProgress['entitlement'] = {
+  plan: 'freemium',
+  status: 'active',
+  expires_at: null,
 };
 
 /**
@@ -44,7 +57,7 @@ export class UsersService {
     // renvoie un objet et non un tableau.
     const { data, error } = await this.supabase.client
       .from('profiles')
-      .select('*, user_progress(*)')
+      .select('*, user_progress(*), entitlements(plan, status, expires_at)')
       .eq('id', profileId)
       .maybeSingle();
 
@@ -63,7 +76,8 @@ export class UsersService {
       throw new NotFoundException("Ce compte n'a pas de profil associé.");
     }
 
-    const { user_progress: progress, ...profile } = data;
-    return { profile, progress };
+    const { user_progress: progress, entitlements, ...profile } = data;
+
+    return { profile, progress, entitlement: entitlements ?? FREEMIUM };
   }
 }

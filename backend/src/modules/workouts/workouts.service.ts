@@ -125,7 +125,8 @@ export class WorkoutsService {
     // Lu avant l'écriture pour deux raisons : le fuseau décide du jour local de
     // la séance, et le niveau d'avant est la seule façon de savoir qu'un palier
     // a été franchi une fois la progression écrasée.
-    const { profile, progress } = await this.users.getProfile(profileId);
+    const { profile, progress, entitlement } =
+      await this.users.getProfile(profileId);
 
     const structured = isStructuredLogSport(input.sportId);
 
@@ -188,6 +189,7 @@ export class WorkoutsService {
 
     return {
       profile,
+      entitlement,
       progress: award.progress,
       award: {
         workout: award.workout,
