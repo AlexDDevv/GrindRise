@@ -58,6 +58,12 @@ export class EntitlementsController {
     }
 
     if (!isAuthorized(authorization, secret)) {
+      // Jamais la valeur présentée : la journaliser reviendrait à conserver un
+      // candidat de force brute en clair dans les logs. Sans limite de débit
+      // ailleurs dans l'API, ce endpoint est le seul qu'un inconnu peut
+      // marteler contre un secret partagé, et ça ne laissait aujourd'hui
+      // aucune trace.
+      this.logger.warn('Webhook RevenueCat refusé : signature invalide.');
       throw new UnauthorizedException();
     }
 
