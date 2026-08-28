@@ -186,6 +186,39 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
     });
   });
 
+  it('enregistre l’identifiant RevenueCat du souscripteur sur une ouverture', async () => {
+    // Seul lien vers le compte RevenueCat en cas de litige sur un
+    // remboursement : sans lui, un `revenuecat_id` resterait nul pour
+    // toujours.
+    const { service, ecritures } = stubSupabase({
+      plan: 'freemium',
+      status: 'active',
+      expires_at: null,
+      last_event_at: null,
+    });
+
+    await service.applyRevenueCatEvent(
+      evenement({ originalAppUserId: 'rc-sub-8f3a10c7e1' }),
+    );
+
+    expect(ecritures[0]).toMatchObject({ revenuecat_id: 'rc-sub-8f3a10c7e1' });
+  });
+
+  it('n’écrit pas de revenuecat_id quand l’événement ne le porte pas', async () => {
+    // Un défaut d'écriture, jamais un effacement d'une valeur déjà posée par
+    // un événement précédent.
+    const { service, ecritures } = stubSupabase({
+      plan: 'freemium',
+      status: 'active',
+      expires_at: null,
+      last_event_at: null,
+    });
+
+    await service.applyRevenueCatEvent(evenement());
+
+    expect(ecritures[0]).not.toHaveProperty('revenuecat_id');
+  });
+
   it('ouvre un lifetime sans échéance', async () => {
     const { service, ecritures } = stubSupabase({
       plan: 'freemium',

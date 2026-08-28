@@ -167,6 +167,12 @@ export class EntitlementsService {
     if (transition.kind === 'grant') {
       valeurs.plan = transition.plan;
       valeurs.expires_at = event.expiresAt?.toISOString() ?? null;
+      // Seul lien vers le souscripteur RevenueCat en cas de litige sur un
+      // remboursement. Écrit seulement s'il est présent : un événement qui ne
+      // le porte pas ne doit pas effacer une valeur déjà enregistrée.
+      if (event.originalAppUserId !== null) {
+        valeurs.revenuecat_id = event.originalAppUserId;
+      }
     } else {
       const prolongee = echeanceProlongee(courante.expires_at, event.expiresAt);
       if (prolongee !== null) valeurs.expires_at = prolongee;

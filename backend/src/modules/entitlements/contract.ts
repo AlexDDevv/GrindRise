@@ -39,6 +39,14 @@ export type RevenueCatEvent = {
   eventAt: Date;
   /** Nul pour un achat définitif : un lifetime n'expire pas. */
   expiresAt: Date | null;
+  /**
+   * Identifiant RevenueCat du souscripteur, distinct de l'App User ID.
+   *
+   * Nul si l'événement ne le porte pas — un défaut d'écriture, jamais un rejet
+   * de l'événement : ce champ ne sert à aucune décision ici, seulement à
+   * retrouver le compte chez RevenueCat en cas de litige sur un remboursement.
+   */
+  originalAppUserId: string | null;
 };
 
 /**
@@ -131,8 +139,13 @@ export function readEvent(body: unknown): RevenueCatEvent | null {
   const { event } = body as { event?: unknown };
   if (typeof event !== 'object' || event === null) return null;
 
-  const { type, app_user_id, event_timestamp_ms, expiration_at_ms } =
-    event as Record<string, unknown>;
+  const {
+    type,
+    app_user_id,
+    event_timestamp_ms,
+    expiration_at_ms,
+    original_app_user_id,
+  } = event as Record<string, unknown>;
 
   if (typeof type !== 'string' || type === '') return null;
   // La forme de l'identifiant est une condition de recevabilité comme une
@@ -154,6 +167,10 @@ export function readEvent(body: unknown): RevenueCatEvent | null {
     expiresAt:
       typeof expiration_at_ms === 'number' && Number.isFinite(expiration_at_ms)
         ? new Date(expiration_at_ms)
+        : null,
+    originalAppUserId:
+      typeof original_app_user_id === 'string' && original_app_user_id !== ''
+        ? original_app_user_id
         : null,
   };
 }
