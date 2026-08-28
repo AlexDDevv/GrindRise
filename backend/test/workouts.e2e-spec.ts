@@ -417,6 +417,8 @@ describe('POST /workouts (e2e)', () => {
       expect(response.body).toEqual({
         profile: PROFILE_ROW,
         progress: PROGRESS_AFTER,
+        // Le bouchon ne pose pas d'`entitlements` : c'est le repli freemium.
+        entitlement: { plan: 'freemium', status: 'active', expires_at: null },
         award: {
           workout: WORKOUT_ROW,
           xpAwarded: 100,

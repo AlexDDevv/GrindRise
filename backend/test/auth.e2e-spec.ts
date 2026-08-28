@@ -255,6 +255,9 @@ describe('SupabaseAuthGuard (e2e)', () => {
       expect(response.body).toEqual({
         profile: PROFILE_ROW,
         progress: PROGRESS_ROW,
+        // Le bouchon Supabase ne renvoie pas d'`entitlements` : c'est le repli
+        // freemium le plus restrictif, comme pour tout compte sans ligne.
+        entitlement: { plan: 'freemium', status: 'active', expires_at: null },
       });
 
       // L'identité interrogée vient du JWT vérifié, pas de l'appelant.
