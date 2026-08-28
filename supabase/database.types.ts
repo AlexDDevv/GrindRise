@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   graphql_public: {
     Tables: {
@@ -74,6 +74,7 @@ export type Database = {
       entitlements: {
         Row: {
           expires_at: string | null
+          last_event_at: string | null
           plan: Database["public"]["Enums"]["entitlement_plan"]
           profile_id: string
           revenuecat_id: string | null
@@ -82,6 +83,7 @@ export type Database = {
         }
         Insert: {
           expires_at?: string | null
+          last_event_at?: string | null
           plan?: Database["public"]["Enums"]["entitlement_plan"]
           profile_id: string
           revenuecat_id?: string | null
@@ -90,6 +92,7 @@ export type Database = {
         }
         Update: {
           expires_at?: string | null
+          last_event_at?: string | null
           plan?: Database["public"]["Enums"]["entitlement_plan"]
           profile_id?: string
           revenuecat_id?: string | null
@@ -610,6 +613,7 @@ export type Database = {
           sport_id: string
         }[]
       }
+      has_premium_access: { Args: { p_profile_id: string }; Returns: boolean }
       log_workout_with_xp: {
         Args: {
           p_daily_credited_limit: number
