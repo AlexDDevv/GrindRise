@@ -1,8 +1,39 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { PostgrestError } from '@supabase/supabase-js';
 
 import { SupabaseService } from '../../supabase/supabase.service';
 import type { Database } from '../../database.types';
 import { transitionFor, type RevenueCatEvent } from './contract';
+
+/**
+ * « invalid input syntax for type … » : la valeur envoyée n'a pas la forme du
+ * type de la colonne, typiquement un `profile_id` qui n'est pas un UUID.
+ *
+ * `readEvent` refuse déjà ces événements en amont ; ce code reste la ceinture,
+ * parce qu'une erreur de forme ne se répare par aucun rejeu. La remonter ferait
+ * répondre 5xx, et RevenueCat rejouerait jusqu'à l'abandon en noyant les vrais
+ * incidents.
+ */
+const SYNTAXE_INVALIDE = '22P02';
+
+/**
+ * Détaille une erreur PostgREST pour le journal.
+ *
+ * `message` seul ne suffit pas à diagnostiquer : `code` dit s'il y a lieu de
+ * rejouer, et `hint` porte le plus souvent l'action à mener. Ce service est
+ * celui qu'on ne diagnostique que par ses logs — personne ne rejoue un webhook
+ * à la main pour voir ce qu'il dirait.
+ */
+function detaille(erreur: PostgrestError): string {
+  return [
+    erreur.message,
+    erreur.code ? `code ${erreur.code}` : null,
+    erreur.details ? `détails : ${erreur.details}` : null,
+    erreur.hint ? `piste : ${erreur.hint}` : null,
+  ]
+    .filter((part): part is string => part !== null && part !== '')
+    .join(' — ');
+}
 
 /**
  * Typée sur la table plutôt que sur `Record<string, unknown>` : un objet
@@ -61,10 +92,18 @@ export class EntitlementsService {
       .maybeSingle();
 
     if (error) {
+      if (error.code === SYNTAXE_INVALIDE) {
+        this.logger.warn(
+          `Événement RevenueCat inexploitable pour ${event.appUserId} : ` +
+            detaille(error),
+        );
+        return;
+      }
+
       // Une vraie panne : remontée, pour que le contrôleur réponde 5xx et que
       // RevenueCat rejoue. C'est le seul cas où un rejeu sert à quelque chose.
       this.logger.error(
-        `Lecture des droits de ${event.appUserId} échouée : ${error.message}`,
+        `Lecture des droits de ${event.appUserId} échouée : ${detaille(error)}`,
       );
       throw error;
     }
@@ -106,8 +145,17 @@ export class EntitlementsService {
       .eq('profile_id', event.appUserId);
 
     if (erreurEcriture) {
+      if (erreurEcriture.code === SYNTAXE_INVALIDE) {
+        this.logger.warn(
+          `Écriture des droits de ${event.appUserId} impossible en l'état : ` +
+            detaille(erreurEcriture),
+        );
+        return;
+      }
+
       this.logger.error(
-        `Écriture des droits de ${event.appUserId} échouée : ${erreurEcriture.message}`,
+        `Écriture des droits de ${event.appUserId} échouée : ` +
+          detaille(erreurEcriture),
       );
       throw erreurEcriture;
     }

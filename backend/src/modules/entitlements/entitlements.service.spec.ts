@@ -1,3 +1,5 @@
+import type { PostgrestError } from '@supabase/supabase-js';
+
 import { SupabaseService } from '../../supabase/supabase.service';
 import type { RevenueCatEvent } from './contract';
 import { EntitlementsService } from './entitlements.service';
@@ -26,7 +28,14 @@ type Appel = { methode: string; args: unknown[] };
  * `profile_id`, seule la séparation des deux chaînes permet d'exiger le filtre
  * sur celle qui écrit.
  */
-function stubSupabase(courante: LigneCourante) {
+/** Les pannes que le bouchon peut simuler, chacune sur sa requête. */
+type Pannes = { lecture?: PostgrestError; ecriture?: PostgrestError };
+
+function erreurPg(code: string, message: string, hint = ''): PostgrestError {
+  return { name: 'PostgrestError', message, details: '', hint, code };
+}
+
+function stubSupabase(courante: LigneCourante, pannes: Pannes = {}) {
   const ecritures: Record<string, unknown>[] = [];
   const chaines: Appel[][] = [];
 
@@ -43,7 +52,11 @@ function stubSupabase(courante: LigneCourante) {
     }
     chaine.maybeSingle = () => {
       appels.push({ methode: 'maybeSingle', args: [] });
-      return Promise.resolve({ data: courante, error: null });
+      return Promise.resolve(
+        pannes.lecture
+          ? { data: null, error: pannes.lecture }
+          : { data: courante, error: null },
+      );
     };
     chaine.update = (valeurs: Record<string, unknown>) => {
       appels.push({ methode: 'update', args: [valeurs] });
@@ -51,7 +64,7 @@ function stubSupabase(courante: LigneCourante) {
       return chaine;
     };
     chaine.then = (resolve: (v: unknown) => unknown) =>
-      resolve({ data: null, error: null });
+      resolve({ data: null, error: pannes.ecriture ?? null });
 
     return chaine;
   }
@@ -219,6 +232,28 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
     await service.applyRevenueCatEvent(evenement({ type: 'TRANSFER' }));
 
     expect(ecritures).toHaveLength(0);
+  });
+
+  it('ne rejoue pas une erreur de forme, il la journalise', async () => {
+    // 22P02 = « invalid input syntax for type … ». Aucun rejeu ne corrigera la
+    // valeur envoyée : remonter l'erreur ferait répondre 5xx, et RevenueCat
+    // rejouerait indéfiniment un événement définitivement mort.
+    const { service, ecritures } = stubSupabase(null, {
+      lecture: erreurPg('22P02', 'invalid input syntax for type uuid'),
+    });
+
+    await expect(service.applyRevenueCatEvent(evenement())).resolves.toBeUndefined();
+    expect(ecritures).toHaveLength(0);
+  });
+
+  it('remonte une vraie panne, seul cas où un rejeu sert', async () => {
+    const { service } = stubSupabase(null, {
+      lecture: erreurPg('08006', 'connection failure'),
+    });
+
+    await expect(service.applyRevenueCatEvent(evenement())).rejects.toMatchObject({
+      code: '08006',
+    });
   });
 
   it('n’écrit rien pour un profil sans ligne d’entitlement', async () => {
