@@ -143,6 +143,10 @@ export class EntitlementsService {
 
     if (
       courante.last_event_at !== null &&
+      // `>=` et non `>` : un rejeu exact (même horodatage) doit être ignoré.
+      // Ça sacrifie aussi un événement distinct arrivé dans la même
+      // milliseconde que le précédent — négligeable face à RevenueCat, dont
+      // l'horodatage n'a de toute façon pas cette précision en pratique.
       new Date(courante.last_event_at) >= event.eventAt
     ) {
       this.logger.log(
@@ -168,10 +172,17 @@ export class EntitlementsService {
       if (prolongee !== null) valeurs.expires_at = prolongee;
     }
 
+    // La garde ci-dessus lit puis décide : entre cette lecture et l'écriture,
+    // une autre livraison du même événement — ou un événement concurrent pour
+    // le même profil — peut s'intercaler et passer la même garde. Rejouer le
+    // filtre dans la clause du PATCH fait arbitrer par Postgres, pas par la
+    // mémoire du process : la ligne la plus récente gagne toujours, même si sa
+    // requête arrive en second.
     const { error: erreurEcriture } = await this.supabase.client
       .from('entitlements')
       .update(valeurs)
-      .eq('profile_id', event.appUserId);
+      .eq('profile_id', event.appUserId)
+      .or(`last_event_at.is.null,last_event_at.lt.${event.eventAt.toISOString()}`);
 
     if (erreurEcriture) {
       if (erreurEcriture.code === SYNTAXE_INVALIDE) {
