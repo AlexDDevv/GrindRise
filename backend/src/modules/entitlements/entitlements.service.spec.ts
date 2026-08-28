@@ -98,6 +98,7 @@ function evenement(partiel: Partial<RevenueCatEvent> = {}): RevenueCatEvent {
     appUserId: PROFIL,
     eventAt: new Date('2026-08-28T10:00:00.000Z'),
     expiresAt: new Date('2026-09-28T10:00:00.000Z'),
+    originalAppUserId: null,
     ...partiel,
   };
 }
@@ -119,6 +120,28 @@ describe('EntitlementsService.applyRevenueCatEvent', () => {
       status: 'active',
       expires_at: '2026-09-28T10:00:00.000Z',
       last_event_at: '2026-08-28T10:00:00.000Z',
+    });
+  });
+
+  it('ne fait confiance à la garde en mémoire qu’avec l’arbitrage de Postgres', async () => {
+    // La lecture puis la garde en mémoire, seules, laisseraient deux livraisons
+    // concurrentes du même événement — ou deux événements pour le même profil
+    // arrivés ensemble — passer toutes les deux, et la plus ancienne pourrait
+    // écrire en dernier. Le filtre sur `.update()` fait trancher la base, pas
+    // le process : PostgREST ne patchera pas la ligne si `last_event_at` a
+    // bougé entre-temps.
+    const { service, chaineEcriture } = stubSupabase({
+      plan: 'freemium',
+      status: 'active',
+      expires_at: null,
+      last_event_at: null,
+    });
+
+    await service.applyRevenueCatEvent(evenement());
+
+    expect(chaineEcriture()).toContainEqual({
+      methode: 'or',
+      args: ['last_event_at.is.null,last_event_at.lt.2026-08-28T10:00:00.000Z'],
     });
   });
 
