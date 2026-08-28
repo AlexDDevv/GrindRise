@@ -1,4 +1,4 @@
-import { NotImplementedException, UnauthorizedException } from '@nestjs/common';
+import { Logger, NotImplementedException, UnauthorizedException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 
 import type { AppConfig } from '../../config/env.config';
@@ -57,6 +57,24 @@ describe('POST /webhooks/revenuecat', () => {
       UnauthorizedException,
     );
     expect(appliques).toHaveLength(0);
+  });
+
+  it('journalise le refus sans jamais y écrire la valeur présentée', async () => {
+    // Sans limite de débit ailleurs dans l'API, ce endpoint est le seul
+    // qu'un inconnu peut marteler contre le secret partagé : un refus muet ne
+    // laisserait aucune trace de la tentative.
+    const avertir = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const { controller } = monter(SECRET);
+
+    await expect(controller.handleRevenueCat('faux', CORPS)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+
+    expect(avertir).toHaveBeenCalledTimes(1);
+    const [message] = avertir.mock.calls[0] as [string];
+    expect(message).not.toContain('faux');
+
+    avertir.mockRestore();
   });
 
   it('applique l’événement quand la signature est bonne', async () => {
