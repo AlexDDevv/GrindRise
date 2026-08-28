@@ -21,7 +21,16 @@ describe('readEvent', () => {
       appUserId: '3f8b1c2e-6d4a-4f1b-9c7e-2a5d8e0b4f16',
       eventAt: new Date(1_756_000_000_000),
       expiresAt: new Date(1_758_000_000_000),
+      originalAppUserId: null,
     });
+  });
+
+  it('lit l’identifiant RevenueCat du souscripteur quand il est fourni', () => {
+    const event = readEvent({
+      event: { ...CORPS.event, original_app_user_id: 'rc-sub-8f3a10c7e1' },
+    });
+
+    expect(event?.originalAppUserId).toBe('rc-sub-8f3a10c7e1');
   });
 
   it('accepte une échéance absente — c’est le cas du lifetime', () => {
