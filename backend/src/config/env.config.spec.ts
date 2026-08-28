@@ -140,6 +140,29 @@ describe('validateEnv', () => {
     ).toThrow(/http ou https/);
   });
 
+  it('laisse REVENUECAT_WEBHOOK_SECRET non configuré — c’est le 501 qui protège', () => {
+    // Contrairement à UNSUBSCRIBE_TOKEN_SECRET, rien ne le rend requis :
+    // l'imposer casserait le démarrage local de tout développeur qui ne
+    // travaille pas sur le webhook.
+    expect(validateEnv(complete).revenuecatWebhookSecret).toBeUndefined();
+  });
+
+  it('refuse un secret de webhook RevenueCat trop court', () => {
+    // Seule garde entre l'internet et une écriture des droits payants, sans
+    // aucune limite de débit ailleurs dans l'API : un secret court se
+    // retrouverait par essais successifs.
+    expect(() =>
+      validateEnv({ ...complete, REVENUECAT_WEBHOOK_SECRET: 'trop-court' }),
+    ).toThrow(/REVENUECAT_WEBHOOK_SECRET fait 10 caractères/);
+  });
+
+  it('accepte un secret de webhook RevenueCat assez long', () => {
+    const secret = 'secret-de-webhook-revenuecat-assez-long-pour-etre-credible';
+
+    expect(validateEnv({ ...complete, REVENUECAT_WEBHOOK_SECRET: secret })
+      .revenuecatWebhookSecret).toBe(secret);
+  });
+
   it('refuse toujours de démarrer sans les variables Supabase', () => {
     expect(() => validateEnv({})).toThrow(
       /SUPABASE_URL.*SUPABASE_SERVICE_ROLE_KEY/s,

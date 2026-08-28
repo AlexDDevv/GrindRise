@@ -11,7 +11,13 @@ export type AppConfig = {
   supabaseServiceRoleKey: string;
   /**
    * Secret partagé avec RevenueCat (en-tête `Authorization` du webhook).
-   * Optionnel tant que le webhook n'est pas branché.
+   *
+   * Optionnel : absent, `POST /webhooks/revenuecat` répond 501 et refuse
+   * d'exister plutôt que d'écrire des droits payants sans aucune garde. C'est
+   * un choix délibéré, pas un défaut — imposer cette variable casserait le
+   * démarrage local de tout le monde. Mais tant qu'elle manque en production,
+   * chaque achat RevenueCat est silencieusement perdu : aucun droit n'est
+   * jamais accordé.
    */
   revenuecatWebhookSecret?: string;
   /**
@@ -58,12 +64,16 @@ export type AppConfig = {
 };
 
 /**
- * Longueur minimale du secret de signature.
+ * Longueur minimale d'un secret partagé.
  *
  * 32 caractères, soit l'ordre de grandeur d'une sortie de 256 bits encodée.
- * En dessous, un lien de désabonnement devient forgeable par force brute, et
- * on désabonnerait n'importe qui. La contrainte est vérifiée au boot parce
- * qu'un secret faible ne se remarque jamais autrement.
+ * Sert à `UNSUBSCRIBE_TOKEN_SECRET` — en dessous, un lien de désabonnement
+ * devient forgeable par force brute — et à `REVENUECAT_WEBHOOK_SECRET`, où
+ * l'enjeu est plus grand encore : rien ne limite le débit des requêtes sur ce
+ * endpoint, donc un secret court se retrouve par essais successifs, et sa
+ * seule fonction est de protéger l'écriture des droits payants. La contrainte
+ * est vérifiée au boot parce qu'un secret faible ne se remarque jamais
+ * autrement.
  */
 const MIN_SECRET_LENGTH = 32;
 
@@ -147,11 +157,7 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     throw new Error(`PORT invalide : ${String(raw.PORT)}`);
   }
 
-  const revenuecatWebhookSecret =
-    typeof raw.REVENUECAT_WEBHOOK_SECRET === 'string' &&
-    raw.REVENUECAT_WEBHOOK_SECRET !== ''
-      ? raw.REVENUECAT_WEBHOOK_SECRET
-      : undefined;
+  const revenuecatWebhookSecret = readRevenuecatWebhookSecret(raw);
 
   const redisUrl =
     typeof raw.REDIS_URL === 'string' && raw.REDIS_URL.trim() !== ''
@@ -195,6 +201,28 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     unsubscribeTokenSecret,
     publicApiUrl,
   };
+}
+
+/**
+ * Absent → `undefined`, c'est le 501 qui protège. Présent mais trop court →
+ * on échoue au boot plutôt que de laisser un secret devinable garder la seule
+ * porte vers l'écriture des droits payants.
+ */
+function readRevenuecatWebhookSecret(
+  raw: Record<string, unknown>,
+): string | undefined {
+  const value = raw.REVENUECAT_WEBHOOK_SECRET;
+  if (typeof value !== 'string' || value === '') return undefined;
+
+  if (value.length < MIN_SECRET_LENGTH) {
+    throw new Error(
+      `REVENUECAT_WEBHOOK_SECRET fait ${value.length} caractères, ` +
+        `${MIN_SECRET_LENGTH} au minimum sont attendus. ` +
+        'En générer un : openssl rand -base64 48.',
+    );
+  }
+
+  return value;
 }
 
 function readUnsubscribeSecret(
